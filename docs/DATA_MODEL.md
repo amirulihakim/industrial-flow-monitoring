@@ -240,3 +240,17 @@ Do not create these yet unless a milestone requires them:
 - `audit_log`
 
 A portfolio rebuild should stay lean.
+
+## 13. Milestone 4 implementation note
+
+Milestone 4 implements the documented `devices` and `sensor_readings` schema
+without a material schema change. See `sql/schema.sql`, `sql/seed.sql`, and
+`docs/DATABASE_SETUP.md`.
+
+The persistence service accepts only the canonical sensor set, stores runtime
+ISO timestamps as explicit UTC `DATETIME(3)` strings, and marks generated rows
+with `source = simulation`.
+
+The simulated `sensor_fault` scenario exposes null live measurements. Those
+samples are not inserted because `sensor_readings.value` remains intentionally
+`NOT NULL`; no zero or extreme placeholder is fabricated.

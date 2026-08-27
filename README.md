@@ -8,10 +8,10 @@ The internship report documents work involving industrial sensor monitoring, Mod
 
 Everything implemented in this repository is a reconstruction unless explicitly identified as report-documented or surviving-code evidence. Future public telemetry will be synthetic and clearly labelled; this application is not connected to PT Timah Industri infrastructure.
 
-## Milestone 3
+## Milestone 4
 
-Milestone 3 adds one device-agnostic live monitoring dashboard to the stateful
-synthetic telemetry engine. It provides:
+Milestone 4 adds optional MySQL historical persistence to the existing live
+dashboard and stateful synthetic telemetry engine. It provides:
 
 - a small Express application;
 - a static placeholder page;
@@ -23,10 +23,13 @@ synthetic telemetry engine. It provides:
 - five totalizer cards and six bounded live charts;
 - device and simulation-scenario selection;
 - explicit online, stale, fault, and disconnected presentation;
-- automated simulator, API, dashboard-controller, chart, health, and static-serving tests.
+- long-format `devices` and `sensor_readings` tables;
+- canonical validation and explicit UTC-to-`DATETIME(3)` conversion;
+- configurable, guarded persistence with connected/degraded health status;
+- automated simulator, API, dashboard, persistence, health, and static-serving tests.
 
-It does not implement MySQL, MQTT, Modbus, WebSocket, historical charts,
-authentication, alarms, or industrial control.
+It does not implement historical query ranges or charts, MQTT, Modbus,
+WebSocket, authentication, alarms, or industrial control.
 
 ## Requirements
 
@@ -42,6 +45,10 @@ npm start
 Open `http://localhost:3000/`. To check service health, request `http://localhost:3000/health`.
 
 The port defaults to `3000` and can be overridden with the `PORT` environment variable.
+
+MySQL is optional at process startup: missing configuration or an unavailable
+database produces degraded persistence status without stopping live simulation.
+See `docs/DATABASE_SETUP.md` for reproducible setup and integration checks.
 
 ## Temporary simulation API
 
@@ -70,3 +77,4 @@ npm test
 - `docs/LEGACY_AUDIT.md` records technical debt and corrections discovered during inspection.
 - `docs/SYSTEM_SPEC.md` defines intended future reconstruction behavior; it is not evidence that those behaviors existed historically.
 - `docs/SIMULATION_ASSUMPTIONS.md` identifies all simulation-only relationships and historical verification gaps.
+- `docs/DATABASE_SETUP.md` documents fresh MySQL setup, environment variables, and a manual integration test.

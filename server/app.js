@@ -9,6 +9,12 @@ function createApp(options = {}) {
   const simulator = options.simulator ?? new SimulationEngine({
     seed: process.env.SIMULATION_SEED ?? 'industrial-flow-monitoring-demo',
   });
+  const getPersistenceStatus = options.getPersistenceStatus ?? (() => ({
+    state: 'degraded',
+    interval_ms: null,
+    last_success_at: null,
+    last_error: 'Persistence runtime is not attached.',
+  }));
 
   app.use(express.json());
 
@@ -20,7 +26,8 @@ function createApp(options = {}) {
     response.json({
       status: 'ok',
       service: 'industrial-flow-monitoring',
-      milestone: 3,
+      milestone: 4,
+      persistence: getPersistenceStatus(),
     });
   });
 
