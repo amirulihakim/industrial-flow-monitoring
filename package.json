@@ -1,0 +1,17 @@
+{
+  "name": "industrial-flow-monitoring",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Portfolio-safe reconstruction of an industrial flowmeter monitoring prototype.",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}
