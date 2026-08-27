@@ -1,11 +1,14 @@
 const { createDatabasePool, readDatabaseConfig } = require('../db');
 const { PersistenceRunner } = require('./persistence-runner');
 const { TelemetryRepository } = require('./telemetry-repository');
+const { HistoryRepository } = require('../history/history-repository');
+const { HistoryService, createUnavailableHistoryService } = require('../history/history-service');
 
 function createUnavailableRuntime(config, logger, reason) {
   const message = reason ?? `Database configuration incomplete: ${config.missing.join(', ')}`;
   logger.warn(`[persistence] degraded: ${message}`);
   return {
+    historyService: createUnavailableHistoryService(),
     start() {},
     async stop() {},
     getStatus() {
@@ -47,6 +50,7 @@ function createPersistenceRuntime({ simulator, environment = process.env, logger
   });
 
   return {
+    historyService: new HistoryService(new HistoryRepository(pool)),
     start() { runner.start(); },
     async stop() { runner.stop(); await pool.end(); },
     getStatus() { return runner.getStatus(); },

@@ -9,6 +9,7 @@
   <script defer src="/vendor/chart.js"></script>
   <script defer src="/js/api.js"></script>
   <script defer src="/js/charts.js"></script>
+  <script defer src="/js/history.js"></script>
   <script defer src="/js/app.js"></script>
 </head>
 <body>
@@ -23,7 +24,13 @@
     </div>
   </header>
 
+  <nav class="view-navigation" aria-label="Application views" role="tablist">
+    <button id="view-live" type="button" role="tab" aria-selected="true" data-active="true">Live monitoring</button>
+    <button id="view-history" type="button" role="tab" aria-selected="false" data-active="false">Historical data</button>
+  </nav>
+
   <main id="main-content" class="dashboard-shell">
+    <div id="live-view">
     <section class="hero" aria-labelledby="page-title">
       <div>
         <p class="eyebrow">Live monitoring / synthetic source</p>
@@ -71,8 +78,22 @@
         <article class="chart-card"><div><h3>Outlet temperature</h3><span id="current-temperature-out">—</span></div><canvas id="chart-temperature-out" aria-label="Outlet temperature live trend"></canvas></article>
       </div>
     </section>
+    </div>
+
+    <section id="history-view" class="historical-view" aria-labelledby="historical-title" hidden>
+      <div class="section-heading"><div><p class="eyebrow">Database-backed monitoring</p><h1 id="historical-title">Historical data</h1></div><p>Aggregated on the server and bounded to 1,000 points per request.</p></div>
+      <div class="historical-controls" aria-label="Historical data filters">
+        <label><span>Device</span><select id="history-device"><option value="PCWP">PCWP</option><option value="SCWP1">SCWP1</option><option value="SCWP2">SCWP2</option></select></label>
+        <label><span>Sensor</span><select id="history-sensor"><option value="flow_rate">Flow rate</option><option value="flow_velocity">Flow velocity</option><option value="flow_percentage">Flow percentage</option><option value="instant_heat">Instantaneous heat</option><option value="temperature_in">Inlet temperature</option><option value="temperature_out">Outlet temperature</option><option value="positive_total">Positive total flow</option><option value="negative_total">Negative total flow</option><option value="heating_total">Heating total</option><option value="cooling_total">Cooling total</option></select></label>
+        <label><span>Range</span><select id="history-range"><option value="1h">Last hour</option><option value="8h">Last 8 hours</option><option value="1d">Last day</option><option value="7d">Last 7 days</option><option value="1mo">Last 30 days</option><option value="1y">Last 365 days</option><option value="all">All available</option></select></label>
+      </div>
+      <article class="historical-card">
+        <div class="historical-meta"><h2>Aggregated trend</h2><p id="history-resolution">Select Historical data to load a series.</p></div>
+        <div id="history-state" class="historical-state" data-state="idle" role="status" aria-live="polite">Historical query is idle.</div>
+        <div class="historical-canvas"><canvas id="historical-chart" aria-label="Historical telemetry trend"></canvas></div>
+      </article>
+    </section>
   </main>
   <footer><p>Portfolio reconstruction · Synthetic data only · No company infrastructure connection</p></footer>
 </body>
 </html>
-

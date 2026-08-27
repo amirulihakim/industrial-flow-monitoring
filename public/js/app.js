@@ -151,9 +151,13 @@
     const controller = new DashboardController({ api: new DashboardApi(), charts, elements });
     controller.start();
     window.dashboardController = controller;
+    const historyElements = collectHistoryElements(document);
+    const historyChart = new HistoricalChart({ ChartConstructor: Chart, canvas: document.getElementById('historical-chart') });
+    const historyController = new HistoricalController({ api: new DashboardApi(), chart: historyChart, elements: historyElements });
+    historyController.start();
+    window.historyController = historyController;
   }
 
   if (typeof document !== 'undefined') document.addEventListener('DOMContentLoaded', bootstrap, { once: true });
   return { DashboardController, POLL_INTERVAL_MS, SCENARIO_LABELS, STALE_AFTER_MS, collectElements };
 }));
-

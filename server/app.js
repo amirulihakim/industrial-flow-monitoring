@@ -1,6 +1,7 @@
 const express = require('express');
 const path = require('node:path');
 const { SimulationEngine } = require('./simulation/simulator');
+const { HistoryUnavailableError, HistoryValidationError, createUnavailableHistoryService } = require('./history/history-service');
 
 function createApp(options = {}) {
   const app = express();
@@ -15,6 +16,7 @@ function createApp(options = {}) {
     last_success_at: null,
     last_error: 'Persistence runtime is not attached.',
   }));
+  const historyService = options.historyService ?? createUnavailableHistoryService();
 
   app.use(express.json());
 
@@ -26,7 +28,7 @@ function createApp(options = {}) {
     response.json({
       status: 'ok',
       service: 'industrial-flow-monitoring',
-      milestone: 4,
+      milestone: 5,
       persistence: getPersistenceStatus(),
     });
   });
@@ -46,6 +48,26 @@ function createApp(options = {}) {
     } catch (error) {
       if (error instanceof RangeError) {
         response.status(404).json({ error: error.message });
+        return;
+      }
+      throw error;
+    }
+  });
+
+  app.get('/api/devices/:deviceCode/history', async (request, response) => {
+    try {
+      response.json(await historyService.getHistory({
+        device: request.params.deviceCode,
+        sensor: request.query.sensor,
+        range: request.query.range,
+      }));
+    } catch (error) {
+      if (error instanceof HistoryValidationError) {
+        response.status(error.statusCode).json({ error: error.message, code: 'INVALID_HISTORY_REQUEST' });
+        return;
+      }
+      if (error instanceof HistoryUnavailableError) {
+        response.status(503).json({ error: error.message, code: 'PERSISTENCE_UNAVAILABLE' });
         return;
       }
       throw error;

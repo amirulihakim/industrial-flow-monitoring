@@ -20,15 +20,24 @@
       });
     }
 
+    async getHistory(device, sensor, range) {
+      const query = new URLSearchParams({ sensor, range });
+      return this.#request(`/api/devices/${encodeURIComponent(device)}/history?${query}`);
+    }
+
     async #request(url, options) {
       const response = await this.fetch(url, options);
       let body;
       try { body = await response.json(); } catch (_error) { body = null; }
-      if (!response.ok) throw new Error(body?.error || `Request failed with status ${response.status}`);
+      if (!response.ok) {
+        const error = new Error(body?.error || `Request failed with status ${response.status}`);
+        error.status = response.status;
+        error.code = body?.code;
+        throw error;
+      }
       return body;
     }
   }
 
   return { DashboardApi };
 }));
-

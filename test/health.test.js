@@ -23,7 +23,7 @@ after(async () => {
   });
 });
 
-test('GET /health returns the Milestone 4 health and persistence contract', async () => {
+test('GET /health returns the Milestone 5 health and persistence contract', async () => {
   const response = await fetch(`${baseUrl}/health`);
 
   assert.equal(response.status, 200);
@@ -31,7 +31,7 @@ test('GET /health returns the Milestone 4 health and persistence contract', asyn
   assert.deepEqual(await response.json(), {
     status: 'ok',
     service: 'industrial-flow-monitoring',
-    milestone: 4,
+    milestone: 5,
     persistence: {
       state: 'degraded',
       interval_ms: null,
@@ -69,7 +69,7 @@ test('GET /vendor/chart.js serves the single pinned Chart.js build', async () =>
   assert.match(body, /Chart\.js v4\.4\.7/);
 });
 
-test('the one dashboard page contains all supported devices and six chart canvases', async () => {
+test('the one dashboard page contains all supported devices, live charts, and one historical chart', async () => {
   const response = await fetch(`${baseUrl}/`);
   const body = await response.text();
 
@@ -77,6 +77,7 @@ test('the one dashboard page contains all supported devices and six chart canvas
   for (const device of ['PCWP', 'SCWP1', 'SCWP2']) {
     assert.match(body, new RegExp(`<option value="${device}">${device}</option>`));
   }
-  assert.equal((body.match(/<canvas /g) || []).length, 6);
+  assert.equal((body.match(/<canvas /g) || []).length, 7);
+  assert.match(body, /id="history-view"/);
   assert.doesNotMatch(body, /login|profile|account/i);
 });

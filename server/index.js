@@ -6,7 +6,7 @@ const requestedPort = Number.parseInt(process.env.PORT ?? '3000', 10);
 const port = Number.isInteger(requestedPort) && requestedPort > 0 ? requestedPort : 3000;
 const simulator = new SimulationEngine({ seed: process.env.SIMULATION_SEED ?? 'industrial-flow-monitoring-demo' });
 const persistence = createPersistenceRuntime({ simulator });
-const app = createApp({ simulator, getPersistenceStatus: () => persistence.getStatus() });
+const app = createApp({ simulator, getPersistenceStatus: () => persistence.getStatus(), historyService: persistence.historyService });
 
 persistence.start();
 
@@ -26,4 +26,3 @@ async function shutdown() {
 
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
-

@@ -8,10 +8,10 @@ The internship report documents work involving industrial sensor monitoring, Mod
 
 Everything implemented in this repository is a reconstruction unless explicitly identified as report-documented or surviving-code evidence. Future public telemetry will be synthetic and clearly labelled; this application is not connected to PT Timah Industri infrastructure.
 
-## Milestone 4
+## Historical data path
 
-Milestone 4 adds optional MySQL historical persistence to the existing live
-dashboard and stateful synthetic telemetry engine. It provides:
+The current reconstruction adds the complete bounded historical path to the
+existing live dashboard and stateful synthetic telemetry engine. It provides:
 
 - a small Express application;
 - a static placeholder page;
@@ -26,10 +26,12 @@ dashboard and stateful synthetic telemetry engine. It provides:
 - long-format `devices` and `sensor_readings` tables;
 - canonical validation and explicit UTC-to-`DATETIME(3)` conversion;
 - configurable, guarded persistence with connected/degraded health status;
+- a validated historical API with fixed and adaptive server-side averages;
+- historical device, sensor, and range controls with explicit error states;
 - automated simulator, API, dashboard, persistence, health, and static-serving tests.
 
-It does not implement historical query ranges or charts, MQTT, Modbus,
-WebSocket, authentication, alarms, or industrial control.
+It does not implement MQTT, Modbus, WebSocket, authentication, alarms, or
+industrial control.
 
 ## Requirements
 
@@ -57,6 +59,7 @@ GET /api/simulation
 GET /api/devices/:deviceCode/latest
 GET /api/devices/:deviceCode/scenario
 PUT /api/devices/:deviceCode/scenario
+GET /api/devices/:deviceCode/history?sensor=flow_rate&range=1h
 ```
 
 The `PUT` route accepts JSON such as `{ "scenario": "low_flow" }`. It changes
@@ -64,6 +67,9 @@ only synthetic demo state and is not an industrial control interface.
 
 All values are synthetic. The configurable assumptions and relationships are
 documented in `docs/SIMULATION_ASSUMPTIONS.md`.
+
+Historical ranges are `1h`, `8h`, `1d`, `7d`, `1mo`, `1y`, and `all`.
+Every response identifies its aggregation and is bounded to 1,000 points.
 
 ## Test
 

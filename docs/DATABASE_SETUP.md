@@ -72,5 +72,10 @@ Do not commit the real password or a populated `.env` file.
 8. Stop MySQL while leaving the application running. After the next interval, confirm `/health` reports `persistence.state = 'degraded'` while `/api/devices/PCWP/latest` and the dashboard continue responding.
 9. Restart MySQL. The runner retries initialization on the next interval and should return to `connected` without restarting the application.
 
-Fault scenario samples contain null measurements and are intentionally not inserted because `sensor_readings.value` is `NOT NULL`. The simulator and dashboard still expose the fault state live.
+10. With persisted rows present, request `GET http://localhost:3000/api/devices/PCWP/history?sensor=flow_rate&range=1h`. Confirm the response identifies `10s_avg`, uses UTC ISO timestamps, and contains no more than 1,000 points. Repeat with `range=all` and confirm it reports an `adaptive_<seconds>s_avg` aggregation.
 
+The fixed reconstruction ranges interpret `1mo` as the preceding 30 days and
+`1y` as the preceding 365 days. These are V2 query-policy choices, not recovered
+legacy backend behavior.
+
+Fault scenario samples contain null measurements and are intentionally not inserted because `sensor_readings.value` is `NOT NULL`. The simulator and dashboard still expose the fault state live.
