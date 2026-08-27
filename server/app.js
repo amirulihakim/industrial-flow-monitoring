@@ -5,17 +5,22 @@ const { SimulationEngine } = require('./simulation/simulator');
 function createApp(options = {}) {
   const app = express();
   const publicDirectory = path.join(__dirname, '..', 'public');
+  const chartJsPath = path.join(__dirname, '..', 'node_modules', 'chart.js', 'dist', 'chart.umd.js');
   const simulator = options.simulator ?? new SimulationEngine({
     seed: process.env.SIMULATION_SEED ?? 'industrial-flow-monitoring-demo',
   });
 
   app.use(express.json());
 
+  app.get('/vendor/chart.js', (_request, response) => {
+    response.sendFile(chartJsPath);
+  });
+
   app.get('/health', (_request, response) => {
     response.json({
       status: 'ok',
       service: 'industrial-flow-monitoring',
-      milestone: 2,
+      milestone: 3,
     });
   });
 

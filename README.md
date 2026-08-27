@@ -8,10 +8,10 @@ The internship report documents work involving industrial sensor monitoring, Mod
 
 Everything implemented in this repository is a reconstruction unless explicitly identified as report-documented or surviving-code evidence. Future public telemetry will be synthetic and clearly labelled; this application is not connected to PT Timah Industri infrastructure.
 
-## Milestone 2
+## Milestone 3
 
-Milestone 2 adds a deterministic, stateful synthetic telemetry engine to the
-Milestone 1 application skeleton. It provides:
+Milestone 3 adds one device-agnostic live monitoring dashboard to the stateful
+synthetic telemetry engine. It provides:
 
 - a small Express application;
 - a static placeholder page;
@@ -19,10 +19,14 @@ Milestone 1 application skeleton. It provides:
 - synthetic state for PCWP, SCWP1, and SCWP2;
 - normal, low-flow, stopped-pump, high-temperature, and sensor-fault scenarios;
 - a temporary local inspection API;
-- automated simulator, API, health, and static-serving tests.
+- one coherent latest-state request per polling interval;
+- five totalizer cards and six bounded live charts;
+- device and simulation-scenario selection;
+- explicit online, stale, fault, and disconnected presentation;
+- automated simulator, API, dashboard-controller, chart, health, and static-serving tests.
 
-It does not implement MySQL, MQTT, Modbus, WebSocket, dashboards, charts,
-authentication, industrial control, or historical queries.
+It does not implement MySQL, MQTT, Modbus, WebSocket, historical charts,
+authentication, alarms, or industrial control.
 
 ## Requirements
 
