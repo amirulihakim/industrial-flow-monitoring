@@ -17,6 +17,10 @@ function createApp(options = {}) {
     last_error: 'Persistence runtime is not attached.',
   }));
   const historyService = options.historyService ?? createUnavailableHistoryService();
+  const getLatestState = options.getLatestState ?? ((device) => simulator.step(device, 1));
+  const setScenario = options.setScenario ?? ((device, scenario) => simulator.setScenario(device, scenario));
+  const getSourceStatus = options.getSourceStatus ?? (() => ({ type: 'simulation', state: 'connected' }));
+  const getRealtimeStatus = options.getRealtimeStatus ?? (() => ({ state: 'unavailable', path: '/realtime', clients: 0 }));
 
   app.use(express.json());
 
@@ -28,8 +32,10 @@ function createApp(options = {}) {
     response.json({
       status: 'ok',
       service: 'industrial-flow-monitoring',
-      milestone: 5,
+      milestone: 7,
       persistence: getPersistenceStatus(),
+      source: getSourceStatus(),
+      realtime: getRealtimeStatus(),
     });
   });
 
@@ -44,7 +50,9 @@ function createApp(options = {}) {
 
   app.get('/api/devices/:deviceCode/latest', (request, response) => {
     try {
-      response.json(simulator.step(request.params.deviceCode, 1));
+      const state = getLatestState(request.params.deviceCode);
+      if (!state) { response.status(404).json({ error: `No telemetry is available for device: ${request.params.deviceCode}` }); return; }
+      response.json(state);
     } catch (error) {
       if (error instanceof RangeError) {
         response.status(404).json({ error: error.message });
@@ -95,11 +103,12 @@ function createApp(options = {}) {
 
   app.put('/api/devices/:deviceCode/scenario', (request, response) => {
     try {
-      response.json(simulator.setScenario(
+      response.json(setScenario(
         request.params.deviceCode,
         request.body?.scenario,
       ));
     } catch (error) {
+      if (error?.code === 'SCENARIO_UNAVAILABLE') { response.status(409).json({ error: error.message }); return; }
       if (error instanceof RangeError) {
         const unsupportedDevice = error.message.startsWith('Unsupported device');
         response.status(unsupportedDevice ? 404 : 400).json({ error: error.message });

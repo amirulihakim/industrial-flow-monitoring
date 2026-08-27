@@ -9,6 +9,7 @@ function createUnavailableRuntime(config, logger, reason) {
   logger.warn(`[persistence] degraded: ${message}`);
   return {
     historyService: createUnavailableHistoryService(),
+    accept() {},
     start() {},
     async stop() {},
     getStatus() {
@@ -51,6 +52,7 @@ function createPersistenceRuntime({ simulator, environment = process.env, logger
 
   return {
     historyService: new HistoryService(new HistoryRepository(pool)),
+    accept(state) { runner.accept(state); },
     start() { runner.start(); },
     async stop() { runner.stop(); await pool.end(); },
     getStatus() { return runner.getStatus(); },

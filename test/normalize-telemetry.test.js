@@ -35,6 +35,13 @@ test('normal simulation state becomes ten canonical simulation rows', () => {
   assert.ok(rows.every((row) => row.recordedAt === '2026-01-01 00:00:01.000'));
 });
 
+test('normalized MQTT state persists with source=mqtt', () => {
+  const state = createNormalState(); state.source = 'mqtt'; state.scenario = null;
+  const rows = normalizeTelemetryState(state);
+  assert.equal(rows.length, 10);
+  assert.ok(rows.every((row) => row.source === 'mqtt'));
+});
+
 test('unknown or missing sensor identifiers are rejected before persistence', () => {
   const state = createNormalState();
   state.measurements.flow_rt = state.measurements.flow_rate;
@@ -50,13 +57,12 @@ test('fault/null telemetry is represented live but produces no database rows', (
   assert.deepEqual(normalizeTelemetryState(state), []);
 });
 
-test('non-simulation and non-finite telemetry are rejected', () => {
+test('unsupported sources and non-finite telemetry are rejected', () => {
   const wrongSource = createNormalState();
   wrongSource.source = 'unknown';
-  assert.throws(() => normalizeTelemetryState(wrongSource), /simulation source only/);
+  assert.throws(() => normalizeTelemetryState(wrongSource), /Unsupported telemetry source/);
 
   const invalidValue = createNormalState();
   invalidValue.measurements.flow_rate = Number.NaN;
   assert.throws(() => normalizeTelemetryState(invalidValue), /must be finite/);
 });
-

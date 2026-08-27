@@ -21,7 +21,7 @@ function assertCanonicalKeys(values) {
 
 function normalizeTelemetryState(state) {
   if (!DEVICE_CODES.includes(state?.device)) throw new TypeError(`Unsupported device: ${state?.device}`);
-  if (state.source !== 'simulation') throw new TypeError('Milestone 4 persistence accepts simulation source only');
+  if (!['simulation', 'mqtt'].includes(state.source)) throw new TypeError(`Unsupported telemetry source: ${state.source}`);
   if (!ALLOWED_QUALITY.includes(state.quality)) throw new TypeError(`Unsupported quality: ${state.quality}`);
 
   const values = { ...state.measurements, ...state.totals };
@@ -44,7 +44,7 @@ function normalizeTelemetryState(state) {
       value,
       recordedAt,
       quality: state.quality,
-      source: 'simulation',
+      source: state.source,
       remark: null,
     };
   });
@@ -56,4 +56,3 @@ module.exports = {
   normalizeTelemetryState,
   toMysqlDateTime,
 };
-

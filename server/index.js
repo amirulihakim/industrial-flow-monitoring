@@ -1,16 +1,46 @@
+const http = require('node:http');
 const { createApp } = require('./app');
 const { createPersistenceRuntime } = require('./persistence/runtime');
+const { RealtimeWebSocketServer } = require('./realtime/websocket-server');
 const { SimulationEngine } = require('./simulation/simulator');
+const { createTelemetrySource } = require('./telemetry/source-factory');
+const { TelemetryPipeline } = require('./telemetry/telemetry-pipeline');
 
 const requestedPort = Number.parseInt(process.env.PORT ?? '3000', 10);
 const port = Number.isInteger(requestedPort) && requestedPort > 0 ? requestedPort : 3000;
 const simulator = new SimulationEngine({ seed: process.env.SIMULATION_SEED ?? 'industrial-flow-monitoring-demo' });
-const persistence = createPersistenceRuntime({ simulator });
-const app = createApp({ simulator, getPersistenceStatus: () => persistence.getStatus(), historyService: persistence.historyService });
+const source = createTelemetrySource({ simulator });
+const pipeline = new TelemetryPipeline();
+const persistence = createPersistenceRuntime({});
+pipeline.on('telemetry', (state) => persistence.accept(state));
+source.on('telemetry', (state) => pipeline.accept(state));
+const setScenario = (device, scenario) => {
+  if (typeof source.setScenario !== 'function') {
+    const error = new Error('Scenario controls are available only with the simulation source.');
+    error.code = 'SCENARIO_UNAVAILABLE';
+    throw error;
+  }
+  const state = source.setScenario(device, scenario);
+  pipeline.accept(state);
+  return state;
+};
+let realtime;
+const app = createApp({
+  simulator,
+  getPersistenceStatus: () => persistence.getStatus(),
+  historyService: persistence.historyService,
+  getLatestState: (device) => pipeline.getLatest(device),
+  setScenario,
+  getSourceStatus: () => source.getStatus(),
+  getRealtimeStatus: () => realtime?.getStatus() ?? { state: 'starting', path: '/realtime', clients: 0 },
+});
+const server = http.createServer(app);
+realtime = new RealtimeWebSocketServer({ server, pipeline });
 
 persistence.start();
+source.start();
 
-const server = app.listen(port, () => {
+server.listen(port, () => {
   console.log(`Industrial Flow Monitoring listening on http://localhost:${port}`);
 });
 
@@ -18,10 +48,10 @@ let shuttingDown = false;
 async function shutdown() {
   if (shuttingDown) return;
   shuttingDown = true;
-  server.close(async () => {
-    await persistence.stop();
-    process.exit(0);
-  });
+  await source.stop();
+  await realtime.stop();
+  await persistence.stop();
+  server.close(() => process.exit(0));
 }
 
 process.on('SIGINT', shutdown);

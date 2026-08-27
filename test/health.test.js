@@ -23,7 +23,7 @@ after(async () => {
   });
 });
 
-test('GET /health returns the Milestone 5 health and persistence contract', async () => {
+test('GET /health returns persistence, source, and realtime status', async () => {
   const response = await fetch(`${baseUrl}/health`);
 
   assert.equal(response.status, 200);
@@ -31,13 +31,15 @@ test('GET /health returns the Milestone 5 health and persistence contract', asyn
   assert.deepEqual(await response.json(), {
     status: 'ok',
     service: 'industrial-flow-monitoring',
-    milestone: 5,
+    milestone: 7,
     persistence: {
       state: 'degraded',
       interval_ms: null,
       last_success_at: null,
       last_error: 'Persistence runtime is not attached.',
     },
+    source: { type: 'simulation', state: 'connected' },
+    realtime: { state: 'unavailable', path: '/realtime', clients: 0 },
   });
 });
 

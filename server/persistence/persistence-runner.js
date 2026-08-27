@@ -20,6 +20,7 @@ class PersistenceRunner {
     this.timer = null;
     this.running = false;
     this.initialized = false;
+    this.pendingStates = new Map();
     this.status = {
       state: 'degraded',
       interval_ms: intervalMs,
@@ -44,6 +45,8 @@ class PersistenceRunner {
     return { ...this.status };
   }
 
+  accept(state) { this.pendingStates.set(state.device, state); }
+
   async runOnce() {
     if (this.running) return false;
     this.running = true;
@@ -54,10 +57,14 @@ class PersistenceRunner {
         this.initialized = true;
       }
 
-      const elapsedSeconds = this.intervalMs / 1000;
-      const states = this.simulator.stepAll(elapsedSeconds);
-      const readings = Object.values(states).flatMap(normalizeTelemetryState);
+      const states = this.pendingStates.size > 0
+        ? [...this.pendingStates.values()]
+        : Object.values(this.simulator?.stepAll(this.intervalMs / 1000) ?? {});
+      const readings = states.flatMap(normalizeTelemetryState);
       await this.repository.insertReadings(readings);
+      for (const state of states) {
+        if (this.pendingStates.get(state.device) === state) this.pendingStates.delete(state.device);
+      }
       this.status = {
         state: 'connected',
         interval_ms: this.intervalMs,
@@ -82,4 +89,3 @@ class PersistenceRunner {
 }
 
 module.exports = { PersistenceRunner };
-

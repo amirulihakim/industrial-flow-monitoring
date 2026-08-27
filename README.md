@@ -28,10 +28,12 @@ existing live dashboard and stateful synthetic telemetry engine. It provides:
 - configurable, guarded persistence with connected/degraded health status;
 - a validated historical API with fixed and adaptive server-side averages;
 - historical device, sensor, and range controls with explicit error states;
+- one reconnecting `/realtime` WebSocket connection per browser tab;
+- interchangeable simulation and server-side MQTT telemetry sources;
+- one normalized state pipeline shared by latest state, persistence, and broadcast;
 - automated simulator, API, dashboard, persistence, health, and static-serving tests.
 
-It does not implement MQTT, Modbus, WebSocket, authentication, alarms, or
-industrial control.
+It does not implement Modbus, authentication, alarms, or industrial control.
 
 ## Requirements
 
@@ -47,6 +49,10 @@ npm start
 Open `http://localhost:3000/`. To check service health, request `http://localhost:3000/health`.
 
 The port defaults to `3000` and can be overridden with the `PORT` environment variable.
+
+`DATA_SOURCE=simulation` is the safe default. See
+`docs/REALTIME_TRANSPORT.md` for the reconstruction-only MQTT topic/payload
+contract and optional broker configuration.
 
 MySQL is optional at process startup: missing configuration or an unavailable
 database produces degraded persistence status without stopping live simulation.
@@ -70,6 +76,8 @@ documented in `docs/SIMULATION_ASSUMPTIONS.md`.
 
 Historical ranges are `1h`, `8h`, `1d`, `7d`, `1mo`, `1y`, and `all`.
 Every response identifies its aggregation and is bounded to 1,000 points.
+The latest-state route remains available for one-shot inspection, but the live
+dashboard no longer polls it; realtime updates arrive through WebSocket.
 
 ## Test
 

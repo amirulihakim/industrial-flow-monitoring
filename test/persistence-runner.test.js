@@ -87,3 +87,10 @@ test('successful persistence writes three devices times ten canonical readings',
   assert.equal(runner.getStatus().last_success_at, '2026-01-01T00:01:00.000Z');
 });
 
+test('accepted source states are persisted once without stepping a simulator', async () => {
+  const captured = [];
+  const runner = new PersistenceRunner({ repository: { async initialize() {}, async insertReadings(readings) { captured.push(...readings); } }, intervalMs: 5000 });
+  const state = createSimulator().step('PCWP'); runner.accept(state);
+  assert.equal(await runner.runOnce(), true); assert.equal(captured.length, 10);
+  captured.length = 0; assert.equal(await runner.runOnce(), true); assert.equal(captured.length, 0);
+});
