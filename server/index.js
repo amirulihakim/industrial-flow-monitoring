@@ -8,6 +8,5 @@ const port = Number.isInteger(requestedPort) && requestedPort > 0
 const app = createApp();
 
 app.listen(port, () => {
-  console.log(`Industrial Flow Monitoring skeleton listening on http://localhost:${port}`);
+  console.log(`Industrial Flow Monitoring simulation API listening on http://localhost:${port}`);
 });
-

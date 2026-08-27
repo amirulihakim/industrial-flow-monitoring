@@ -8,17 +8,21 @@ The internship report documents work involving industrial sensor monitoring, Mod
 
 Everything implemented in this repository is a reconstruction unless explicitly identified as report-documented or surviving-code evidence. Future public telemetry will be synthetic and clearly labelled; this application is not connected to PT Timah Industri infrastructure.
 
-## Milestone 1
+## Milestone 2
 
-Milestone 1 deliberately provides only:
+Milestone 2 adds a deterministic, stateful synthetic telemetry engine to the
+Milestone 1 application skeleton. It provides:
 
 - a small Express application;
 - a static placeholder page;
 - `GET /health`;
-- automated health and static-serving tests;
-- a code-derived legacy behavior map.
+- synthetic state for PCWP, SCWP1, and SCWP2;
+- normal, low-flow, stopped-pump, high-temperature, and sensor-fault scenarios;
+- a temporary local inspection API;
+- automated simulator, API, health, and static-serving tests.
 
-It does not yet implement telemetry, simulation, MySQL, MQTT, WebSocket, device dashboards, or historical queries.
+It does not implement MySQL, MQTT, Modbus, WebSocket, dashboards, charts,
+authentication, industrial control, or historical queries.
 
 ## Requirements
 
@@ -35,6 +39,21 @@ Open `http://localhost:3000/`. To check service health, request `http://localhos
 
 The port defaults to `3000` and can be overridden with the `PORT` environment variable.
 
+## Temporary simulation API
+
+```text
+GET /api/simulation
+GET /api/devices/:deviceCode/latest
+GET /api/devices/:deviceCode/scenario
+PUT /api/devices/:deviceCode/scenario
+```
+
+The `PUT` route accepts JSON such as `{ "scenario": "low_flow" }`. It changes
+only synthetic demo state and is not an industrial control interface.
+
+All values are synthetic. The configurable assumptions and relationships are
+documented in `docs/SIMULATION_ASSUMPTIONS.md`.
+
 ## Test
 
 ```sh
@@ -46,4 +65,4 @@ npm test
 - `docs/LEGACY_BEHAVIOR_MAP.md` records behavior directly supported by surviving code and separates it from report evidence, inference, and unknowns.
 - `docs/LEGACY_AUDIT.md` records technical debt and corrections discovered during inspection.
 - `docs/SYSTEM_SPEC.md` defines intended future reconstruction behavior; it is not evidence that those behaviors existed historically.
-
+- `docs/SIMULATION_ASSUMPTIONS.md` identifies all simulation-only relationships and historical verification gaps.

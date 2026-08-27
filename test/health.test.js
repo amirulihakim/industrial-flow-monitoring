@@ -23,7 +23,7 @@ after(async () => {
   });
 });
 
-test('GET /health returns the Milestone 1 health contract', async () => {
+test('GET /health returns the Milestone 2 health contract', async () => {
   const response = await fetch(`${baseUrl}/health`);
 
   assert.equal(response.status, 200);
@@ -31,7 +31,7 @@ test('GET /health returns the Milestone 1 health contract', async () => {
   assert.deepEqual(await response.json(), {
     status: 'ok',
     service: 'industrial-flow-monitoring',
-    milestone: 1,
+    milestone: 2,
   });
 });
 
