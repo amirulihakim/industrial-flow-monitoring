@@ -30,6 +30,7 @@ existing live dashboard and stateful synthetic telemetry engine. It provides:
 - historical device, sensor, and range controls with explicit error states;
 - one reconnecting `/realtime` WebSocket connection per browser tab;
 - interchangeable simulation and server-side MQTT telemetry sources;
+- an external-map-driven Modbus RTU source for reconstruction and local testing;
 - one normalized state pipeline shared by latest state, persistence, and broadcast;
 - automated simulator, API, dashboard, persistence, health, and static-serving tests.
 
@@ -50,9 +51,12 @@ Open `http://localhost:3000/`. To check service health, request `http://localhos
 
 The port defaults to `3000` and can be overridden with the `PORT` environment variable.
 
-`DATA_SOURCE=simulation` is the safe default. See
+`DATA_SOURCE=simulation` is the safe default. Supported reconstruction sources
+are `simulation`, `mqtt`, and `modbus`. See
 `docs/REALTIME_TRANSPORT.md` for the reconstruction-only MQTT topic/payload
-contract and optional broker configuration.
+contract, `config/modbus.example.json` for the synthetic mapping format, and
+`docs/MODBUS_SOURCE.md` and `docs/LOCAL_INTEGRATION.md` for adapter details and
+the end-to-end local test sequence.
 
 MySQL is optional at process startup: missing configuration or an unavailable
 database produces degraded persistence status without stopping live simulation.

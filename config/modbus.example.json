@@ -1,0 +1,29 @@
+{
+  "notice": "2026 reconstruction example only. Addresses and conversion settings are synthetic and are not PT Timah instrument specifications.",
+  "connection": {
+    "serial_port": "COM_EXAMPLE",
+    "baud_rate": 9600,
+    "parity": "none",
+    "data_bits": 8,
+    "stop_bits": 1,
+    "polling_interval_ms": 1000
+  },
+  "devices": [
+    {
+      "device": "PCWP",
+      "unit_id": 1,
+      "mappings": [
+        { "sensor": "flow_rate", "address": 100, "register_count": 2, "data_type": "float", "signed": true, "byte_order": "big", "word_order": "high_first", "multiplier": 1, "offset": 0 },
+        { "sensor": "flow_velocity", "address": 102, "register_count": 2, "data_type": "float", "signed": true, "byte_order": "big", "word_order": "high_first", "multiplier": 1, "offset": 0 },
+        { "sensor": "flow_percentage", "address": 104, "register_count": 1, "data_type": "integer", "signed": false, "byte_order": "big", "word_order": "high_first", "multiplier": 0.01, "offset": 0 },
+        { "sensor": "instant_heat", "address": 105, "register_count": 2, "data_type": "float", "signed": true, "byte_order": "big", "word_order": "low_first", "multiplier": 1, "offset": 0 },
+        { "sensor": "temperature_in", "address": 107, "register_count": 1, "data_type": "integer", "signed": true, "byte_order": "big", "word_order": "high_first", "multiplier": 0.1, "offset": 0 },
+        { "sensor": "temperature_out", "address": 108, "register_count": 1, "data_type": "integer", "signed": true, "byte_order": "big", "word_order": "high_first", "multiplier": 0.1, "offset": 0 },
+        { "sensor": "positive_total", "address": 109, "register_count": 2, "data_type": "integer", "signed": false, "byte_order": "big", "word_order": "high_first", "multiplier": 0.1, "offset": 0 },
+        { "sensor": "negative_total", "address": 111, "register_count": 2, "data_type": "integer", "signed": false, "byte_order": "big", "word_order": "high_first", "multiplier": 0.1, "offset": 0 },
+        { "sensor": "heating_total", "address": 113, "register_count": 2, "data_type": "integer", "signed": false, "byte_order": "little", "word_order": "high_first", "multiplier": 0.01, "offset": 0 },
+        { "sensor": "cooling_total", "address": 115, "register_count": 2, "data_type": "integer", "signed": false, "byte_order": "big", "word_order": "high_first", "multiplier": 0.01, "offset": 0 }
+      ]
+    }
+  ]
+}

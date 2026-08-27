@@ -50,6 +50,13 @@ Update this file whenever old source code, screenshots, manuals, Node-RED flows,
 | Every device page was field-deployed | — | UNKNOWN |
 | Current legacy code exactly matches final internship deployment | — | UNKNOWN |
 
+## Reconstruction artifacts are not new historical evidence
+
+The configurable `ModbusSource` and `config/modbus.example.json` added during
+the 2026 reconstruction demonstrate a testable Modbus RTU ingestion design.
+They do not resolve E-007 or E-008 and are not evidence of original register
+addresses, slave IDs, serial settings, scaling, byte order, or word order.
+
 ## Questions for the project owner / future evidence
 
 1. What do PCWP, SCWP1, and SCWP2 stand for exactly?

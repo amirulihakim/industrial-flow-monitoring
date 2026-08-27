@@ -21,7 +21,7 @@ function assertCanonicalKeys(values) {
 
 function normalizeTelemetryState(state) {
   if (!DEVICE_CODES.includes(state?.device)) throw new TypeError(`Unsupported device: ${state?.device}`);
-  if (!['simulation', 'mqtt'].includes(state.source)) throw new TypeError(`Unsupported telemetry source: ${state.source}`);
+  if (!['simulation', 'mqtt', 'modbus'].includes(state.source)) throw new TypeError(`Unsupported telemetry source: ${state.source}`);
   if (!ALLOWED_QUALITY.includes(state.quality)) throw new TypeError(`Unsupported quality: ${state.quality}`);
 
   const values = { ...state.measurements, ...state.totals };

@@ -10,7 +10,7 @@ broker address, topic, credentials, or payload contract.
 ## Runtime flow
 
 ```text
-SimulationSource or MqttSource
+SimulationSource, MqttSource, or ModbusSource
              |
              v
       canonical device state
@@ -48,6 +48,12 @@ MQTT_TOPIC_TEMPLATE=timah-monitoring/<device>/telemetry
 Credentials are optional and environment-only. Missing/unreachable MQTT
 configuration produces degraded source health without crashing the HTTP,
 historical, or static application paths.
+
+The reconstructed Modbus RTU source is enabled with `DATA_SOURCE=modbus` and
+`MODBUS_CONFIG_PATH`. Its serial settings and complete canonical register map
+are external JSON configuration. See `config/modbus.example.json`; every
+address and conversion in that file is deliberately synthetic. The original
+internship register map remains unknown.
 
 ## MQTT topic convention
 

@@ -42,6 +42,13 @@ test('normalized MQTT state persists with source=mqtt', () => {
   assert.ok(rows.every((row) => row.source === 'mqtt'));
 });
 
+test('normalized Modbus state persists with source=modbus', () => {
+  const state = createNormalState(); state.source = 'modbus'; state.scenario = null;
+  const rows = normalizeTelemetryState(state);
+  assert.equal(rows.length, 10);
+  assert.ok(rows.every((row) => row.source === 'modbus'));
+});
+
 test('unknown or missing sensor identifiers are rejected before persistence', () => {
   const state = createNormalState();
   state.measurements.flow_rt = state.measurements.flow_rate;

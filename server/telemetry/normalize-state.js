@@ -3,7 +3,7 @@ const { ALLOWED_QUALITY, assertCanonicalKeys } = require('../persistence/normali
 
 function normalizeDeviceState(state) {
   if (!DEVICE_CODES.includes(state?.device)) throw new TypeError(`Unsupported device: ${state?.device}`);
-  if (!['simulation', 'mqtt'].includes(state.source)) throw new TypeError(`Unsupported telemetry source: ${state.source}`);
+  if (!['simulation', 'mqtt', 'modbus'].includes(state.source)) throw new TypeError(`Unsupported telemetry source: ${state.source}`);
   if (!ALLOWED_QUALITY.includes(state.quality)) throw new TypeError(`Unsupported quality: ${state.quality}`);
   const timestamp = new Date(state.timestamp);
   if (Number.isNaN(timestamp.getTime())) throw new TypeError('Telemetry timestamp must be valid ISO 8601');

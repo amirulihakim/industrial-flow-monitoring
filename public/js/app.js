@@ -145,7 +145,7 @@
       this.elements.statusTimestamp.textContent = Number.isFinite(timestampMs) ? new Date(timestampMs).toLocaleString() : 'Invalid timestamp';
       this.elements.scenarioSelect.disabled = state.source !== 'simulation';
       if (state.scenario) this.elements.scenarioSelect.value = state.scenario;
-      this.elements.sourceBannerTitle.textContent = state.source === 'simulation' ? 'Simulation mode' : 'MQTT source';
+      this.elements.sourceBannerTitle.textContent = state.source === 'simulation' ? 'Simulation mode' : `${String(state.source).toUpperCase()} source`;
       this.elements.sourceBannerText.textContent = state.source === 'simulation' ? 'Synthetic telemetry for portfolio demonstration.' : 'Server-normalized external telemetry; topic and deployment are reconstruction-configured.';
       if (fault) { this.#setConnectionState('fault', 'Sensor fault'); this.elements.connectionMessage.textContent = 'Telemetry is unavailable while the simulated sensor is in a fault state.'; }
       else if (stale) { this.#setConnectionState('stale', 'Stale telemetry'); this.elements.connectionMessage.textContent = 'The latest sample is older than the accepted live-data threshold.'; }
