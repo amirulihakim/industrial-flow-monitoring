@@ -79,3 +79,13 @@ The fixed reconstruction ranges interpret `1mo` as the preceding 30 days and
 legacy backend behavior.
 
 Fault scenario samples contain null measurements and are intentionally not inserted because `sensor_readings.value` is `NOT NULL`. The simulator and dashboard still expose the fault state live.
+
+## Portfolio fallback
+
+When `DATA_SOURCE=simulation`, `PORTFOLIO_MODE=true`, and MySQL history is
+unavailable, the historical API returns deterministic synthetic demonstration
+points with `source=simulation`, `fallback=true`, and an explicit notice. This
+does not replace MySQL persistence: a reachable database remains the preferred
+history path, and a valid empty database response remains an empty response.
+
+Set `PORTFOLIO_MODE=false` when database failure should remain a `503` instead.

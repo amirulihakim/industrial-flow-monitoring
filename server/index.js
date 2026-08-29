@@ -1,6 +1,7 @@
 const http = require('node:http');
 const { createApp } = require('./app');
 const { createPersistenceRuntime } = require('./persistence/runtime');
+const { PortfolioHistoryService } = require('./history/portfolio-history-service');
 const { RealtimeWebSocketServer } = require('./realtime/websocket-server');
 const { SimulationEngine } = require('./simulation/simulator');
 const { createTelemetrySource } = require('./telemetry/source-factory');
@@ -12,6 +13,10 @@ const simulator = new SimulationEngine({ seed: process.env.SIMULATION_SEED ?? 'i
 const source = createTelemetrySource({ simulator });
 const pipeline = new TelemetryPipeline();
 const persistence = createPersistenceRuntime({});
+const portfolioMode = String(process.env.PORTFOLIO_MODE ?? 'true').toLowerCase() !== 'false';
+const historyService = portfolioMode && source.type === 'simulation'
+  ? new PortfolioHistoryService(persistence.historyService)
+  : persistence.historyService;
 pipeline.on('telemetry', (state) => persistence.accept(state));
 source.on('telemetry', (state) => pipeline.accept(state));
 const setScenario = (device, scenario) => {
@@ -28,7 +33,7 @@ let realtime;
 const app = createApp({
   simulator,
   getPersistenceStatus: () => persistence.getStatus(),
-  historyService: persistence.historyService,
+  historyService,
   getLatestState: (device) => pipeline.getLatest(device),
   setScenario,
   getSourceStatus: () => source.getStatus(),

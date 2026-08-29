@@ -8,18 +8,17 @@ The internship report documents work involving industrial sensor monitoring, Mod
 
 Everything implemented in this repository is a reconstruction unless explicitly identified as report-documented or surviving-code evidence. Future public telemetry will be synthetic and clearly labelled; this application is not connected to PT Timah Industri infrastructure.
 
-## Historical data path
+## Reconstructed capabilities
 
 The current reconstruction adds the complete bounded historical path to the
 existing live dashboard and stateful synthetic telemetry engine. It provides:
 
 - a small Express application;
-- a static placeholder page;
+- a unified responsive monitoring dashboard;
 - `GET /health`;
 - synthetic state for PCWP, SCWP1, and SCWP2;
 - normal, low-flow, stopped-pump, high-temperature, and sensor-fault scenarios;
-- a temporary local inspection API;
-- one coherent latest-state request per polling interval;
+- a one-shot latest-state inspection API;
 - five totalizer cards and six bounded live charts;
 - device and simulation-scenario selection;
 - explicit online, stale, fault, and disconnected presentation;
@@ -27,6 +26,7 @@ existing live dashboard and stateful synthetic telemetry engine. It provides:
 - canonical validation and explicit UTC-to-`DATETIME(3)` conversion;
 - configurable, guarded persistence with connected/degraded health status;
 - a validated historical API with fixed and adaptive server-side averages;
+- an explicitly labeled deterministic synthetic-history fallback when MySQL is unavailable in portfolio mode;
 - historical device, sensor, and range controls with explicit error states;
 - one reconnecting `/realtime` WebSocket connection per browser tab;
 - interchangeable simulation and server-side MQTT telemetry sources;
@@ -34,7 +34,8 @@ existing live dashboard and stateful synthetic telemetry engine. It provides:
 - one normalized state pipeline shared by latest state, persistence, and broadcast;
 - automated simulator, API, dashboard, persistence, health, and static-serving tests.
 
-It does not implement Modbus, authentication, alarms, or industrial control.
+It does not implement authentication, alarms, industrial control, or a verified
+historical instrument register map.
 
 ## Requirements
 
@@ -60,6 +61,9 @@ the end-to-end local test sequence.
 
 MySQL is optional at process startup: missing configuration or an unavailable
 database produces degraded persistence status without stopping live simulation.
+With `PORTFOLIO_MODE=true` (the default), historical requests fall back to
+clearly identified synthetic history rather than appearing to be recovered or
+live plant data.
 See `docs/DATABASE_SETUP.md` for reproducible setup and integration checks.
 
 ## Temporary simulation API
@@ -77,6 +81,14 @@ only synthetic demo state and is not an industrial control interface.
 
 All values are synthetic. The configurable assumptions and relationships are
 documented in `docs/SIMULATION_ASSUMPTIONS.md`.
+
+The public portfolio interface states:
+
+```text
+SIMULATION MODE
+Synthetic telemetry for portfolio demonstration.
+Not connected to PT Timah Industri infrastructure.
+```
 
 Historical ranges are `1h`, `8h`, `1d`, `7d`, `1mo`, `1y`, and `all`.
 Every response identifies its aggregation and is bounded to 1,000 points.

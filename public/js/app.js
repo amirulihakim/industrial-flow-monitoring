@@ -32,6 +32,7 @@
       this.requestVersion = 0;
       this.started = false;
       this.lastState = null;
+      this.lastTelemetryReceivedAt = null;
       this.unsubscribeTelemetry = null;
       this.unsubscribeStatus = null;
       this.boundDeviceChange = () => this.changeDevice(this.elements.deviceSelect.value);
@@ -74,6 +75,7 @@
       this.#setConnectionState('connecting', 'Connecting');
       this.elements.connectionMessage.textContent = '';
       this.lastState = null;
+      this.lastTelemetryReceivedAt = null;
       const cached = this.realtime.getLatest(device);
       if (cached) this.handleTelemetry(cached);
     }
@@ -112,6 +114,7 @@
     handleTelemetry(state) {
       if (state.device !== this.selectedDevice) return;
       this.lastState = state;
+      this.lastTelemetryReceivedAt = this.now();
       this.#renderState(state, { appendChartPoint: true });
     }
 
@@ -125,9 +128,8 @@
     }
 
     checkStale() {
-      if (!this.lastState) return;
-      const timestampMs = Date.parse(this.lastState.timestamp);
-      if (!Number.isFinite(timestampMs) || this.now() - timestampMs > this.staleAfterMs) {
+      if (!this.lastState || this.lastTelemetryReceivedAt === null) return;
+      if (this.now() - this.lastTelemetryReceivedAt > this.staleAfterMs) {
         this.#setConnectionState('stale', 'Stale telemetry');
         this.elements.connectionMessage.textContent = 'No recent realtime telemetry has arrived for the selected device.';
       }
@@ -135,7 +137,8 @@
 
     #renderState(state, { appendChartPoint }) {
       const timestampMs = Date.parse(state.timestamp);
-      const stale = !Number.isFinite(timestampMs) || this.now() - timestampMs > this.staleAfterMs;
+      const stale = this.lastTelemetryReceivedAt !== null
+        && this.now() - this.lastTelemetryReceivedAt > this.staleAfterMs;
       const fault = state.quality === 'fault' || state.status === 'fault';
       this.elements.statusDevice.textContent = state.device;
       this.elements.statusScenario.textContent = SCENARIO_LABELS[state.scenario] || state.scenario || 'Not applicable';
@@ -145,7 +148,7 @@
       this.elements.statusTimestamp.textContent = Number.isFinite(timestampMs) ? new Date(timestampMs).toLocaleString() : 'Invalid timestamp';
       this.elements.scenarioSelect.disabled = state.source !== 'simulation';
       if (state.scenario) this.elements.scenarioSelect.value = state.scenario;
-      this.elements.sourceBannerTitle.textContent = state.source === 'simulation' ? 'Simulation mode' : `${String(state.source).toUpperCase()} source`;
+      this.elements.sourceBannerTitle.textContent = state.source === 'simulation' ? 'SIMULATION MODE' : `${String(state.source).toUpperCase()} SOURCE`;
       this.elements.sourceBannerText.textContent = state.source === 'simulation' ? 'Synthetic telemetry for portfolio demonstration.' : 'Server-normalized external telemetry; topic and deployment are reconstruction-configured.';
       if (fault) { this.#setConnectionState('fault', 'Sensor fault'); this.elements.connectionMessage.textContent = 'Telemetry is unavailable while the simulated sensor is in a fault state.'; }
       else if (stale) { this.#setConnectionState('stale', 'Stale telemetry'); this.elements.connectionMessage.textContent = 'The latest sample is older than the accepted live-data threshold.'; }

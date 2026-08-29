@@ -24,9 +24,9 @@ function createHarness() {
   const charts = { initializeCount: 0, resetCount: 0, samples: [], initialize() { this.initializeCount += 1; }, reset() { this.resetCount += 1; }, append(timestamp, measurements) { this.samples.push({ timestamp, measurements }); } };
   const realtime = { starts: 0, stops: 0, telemetry: new Set(), statuses: new Set(), latest: new Map(), start() { this.starts += 1; }, stop() { this.stops += 1; }, onTelemetry(listener) { this.telemetry.add(listener); return () => this.telemetry.delete(listener); }, onStatus(listener) { this.statuses.add(listener); return () => this.statuses.delete(listener); }, getLatest(device) { return this.latest.get(device) || null; }, emit(state) { this.latest.set(state.device, state); for (const listener of this.telemetry) listener(state); }, emitStatus(status) { for (const listener of this.statuses) listener(status); } };
   const api = { async getLatest(device) { return createState(device); }, async setScenario(device, scenario) { calls.scenarios.push({ device, scenario }); return createState(device, { scenario }); } };
-  const timers = []; const cleared = [];
-  const controller = new DashboardController({ api, realtime, charts, elements, now: () => Date.parse('2026-01-01T00:00:02.000Z'), setIntervalFunction(callback, delay) { timers.push({ callback, delay }); return 1; }, clearIntervalFunction(id) { cleared.push(id); } });
-  return { calls, charts, cleared, controller, elements, realtime, timers };
+  const timers = []; const cleared = []; let nowMs = Date.parse('2026-01-01T00:00:02.000Z');
+  const controller = new DashboardController({ api, realtime, charts, elements, now: () => nowMs, setIntervalFunction(callback, delay) { timers.push({ callback, delay }); return 1; }, clearIntervalFunction(id) { cleared.push(id); } });
+  return { calls, charts, cleared, controller, elements, realtime, timers, advanceTime(milliseconds) { nowMs += milliseconds; } };
 }
 
 test('one controller owns one WebSocket client and one listener set across device switches', () => {
@@ -57,7 +57,9 @@ test('fault telemetry renders chart gaps and unavailable values', () => {
 test('disconnected and stale realtime states are visible', () => {
   const h = createHarness(); h.controller.start(); h.realtime.emitStatus({ state: 'disconnected', message: 'socket closed' });
   assert.equal(h.elements.statusPanel.dataset.state, 'disconnected'); assert.match(h.elements.connectionMessage.textContent, /socket closed/);
-  h.realtime.emit(createState('PCWP', { timestamp: '2025-12-31T23:59:00.000Z' })); h.controller.checkStale();
+  h.realtime.emit(createState('PCWP', { timestamp: '2025-12-31T23:59:00.000Z' }));
+  assert.equal(h.elements.statusPanel.dataset.state, 'online', 'a newly received sample is live even if its source clock is behind');
+  h.advanceTime(5001); h.controller.checkStale();
   assert.equal(h.elements.statusPanel.dataset.state, 'stale');
 });
 

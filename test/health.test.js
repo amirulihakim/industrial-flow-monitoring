@@ -52,6 +52,7 @@ test('GET / serves the unified reconstruction dashboard', async () => {
   assert.match(body, /Industrial Flowmeter Monitoring/);
   assert.match(body, /2026 reconstruction/i);
   assert.match(body, /Synthetic telemetry for portfolio demonstration/i);
+  assert.match(body, /Not connected to PT Timah Industri infrastructure/i);
 });
 
 test('GET /styles.css serves the dashboard stylesheet', async () => {

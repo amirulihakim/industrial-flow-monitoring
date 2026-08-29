@@ -20,8 +20,9 @@
       <span><strong>Industrial Flowmeter Monitoring</strong><small>2026 reconstruction</small></span>
     </a>
     <div class="simulation-banner" role="note">
-      <strong id="source-banner-title">Simulation mode</strong>
+      <strong id="source-banner-title">SIMULATION MODE</strong>
       <span id="source-banner-text">Synthetic telemetry for portfolio demonstration.</span>
+      <small>Not connected to PT Timah Industri infrastructure.</small>
     </div>
   </header>
 
@@ -88,6 +89,7 @@
         <label><span>Sensor</span><select id="history-sensor"><option value="flow_rate">Flow rate</option><option value="flow_velocity">Flow velocity</option><option value="flow_percentage">Flow percentage</option><option value="instant_heat">Instantaneous heat</option><option value="temperature_in">Inlet temperature</option><option value="temperature_out">Outlet temperature</option><option value="positive_total">Positive total flow</option><option value="negative_total">Negative total flow</option><option value="heating_total">Heating total</option><option value="cooling_total">Cooling total</option></select></label>
         <label><span>Range</span><select id="history-range"><option value="1h">Last hour</option><option value="8h">Last 8 hours</option><option value="1d">Last day</option><option value="7d">Last 7 days</option><option value="1mo">Last 30 days</option><option value="1y">Last 365 days</option><option value="all">All available</option></select></label>
       </div>
+      <p class="historical-disclosure">Database history is preferred. In portfolio mode, clearly identified synthetic history remains available if MySQL is offline.</p>
       <article class="historical-card">
         <div class="historical-meta"><h2>Aggregated trend</h2><p id="history-resolution">Select Historical data to load a series.</p></div>
         <div id="history-state" class="historical-state" data-state="idle" role="status" aria-live="polite">Historical query is idle.</div>

@@ -46,6 +46,14 @@ test('no-data and database-unavailable states are visible', async () => {
   assert.deepEqual(unavailable.chart.renders[0].points, []);
 });
 
+test('synthetic fallback history is visibly identified', async () => {
+  const h = harness({ async getHistory() { return { sensor: 'flow_rate', aggregation: 'synthetic_10s_sample', fallback: true, notice: 'Synthetic portfolio history shown.', points: [{ timestamp: '2026-01-01T00:00:00Z', value: 1 }] }; } });
+  await h.controller.load();
+  assert.equal(h.elements.state.dataset.state, 'fallback');
+  assert.match(h.elements.state.textContent, /Synthetic portfolio/);
+  assert.match(h.elements.resolution.textContent, /Synthetic fallback/);
+});
+
 test('control state is restored after request failure', async () => {
   const h = harness({ async getHistory() { throw new Error('bad request'); } });
   await h.controller.load();

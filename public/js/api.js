@@ -4,8 +4,9 @@
   else Object.assign(root, exported);
 }(typeof globalThis !== 'undefined' ? globalThis : this, function createApiModule() {
   class DashboardApi {
-    constructor(fetchImplementation = fetch) {
-      this.fetch = fetchImplementation;
+    constructor(fetchImplementation) {
+      this.fetch = fetchImplementation
+        ?? (typeof window !== 'undefined' ? window.fetch.bind(window) : globalThis.fetch.bind(globalThis));
     }
 
     async getLatest(device) {

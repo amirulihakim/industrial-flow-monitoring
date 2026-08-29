@@ -77,8 +77,10 @@
         const result = await this.api.getHistory(deviceSelect.value, sensorSelect.value, rangeSelect.value);
         if (version !== this.requestVersion) return;
         this.chart.render(result.points, result.sensor);
-        this.elements.resolution.textContent = `${result.aggregation} · ${result.points.length} of at most 1,000 points`;
+        const provenance = result.fallback ? 'Synthetic fallback · ' : 'MySQL history · ';
+        this.elements.resolution.textContent = `${provenance}${result.aggregation} · ${result.points.length} of at most 1,000 points`;
         if (result.points.length === 0) this.#setState('empty', 'No historical data is available for this selection.');
+        else if (result.fallback) this.#setState('fallback', result.notice || 'Synthetic portfolio history loaded.');
         else this.#setState('ready', `${result.points.length} historical points loaded.`);
       } catch (error) {
         if (version !== this.requestVersion) return;
