@@ -6,6 +6,12 @@
   const formatValue = typeof formatTelemetryValue !== 'undefined'
     ? formatTelemetryValue
     : require('./format').formatTelemetryValue;
+  const formatNumber = typeof formatTelemetryNumber !== 'undefined'
+    ? formatTelemetryNumber
+    : require('./format').formatTelemetryNumber;
+  const quantizeValue = typeof quantizeTelemetryValue !== 'undefined'
+    ? quantizeTelemetryValue
+    : require('./format').quantizeTelemetryValue;
   const LIVE_SERIES = Object.freeze([
     Object.freeze({ key: 'flow_rate', label: 'Flow Rate (m³/h)', canvasId: 'chart-flow-rate', color: '#3d74b7' }),
     Object.freeze({ key: 'flow_velocity', label: 'Flow Velocity (m/s)', canvasId: 'chart-flow-velocity', color: '#168aad' }),
@@ -52,7 +58,7 @@
         const chart = new this.ChartConstructor(canvas, {
           type: 'line',
           data: { labels: rollingSeries.labels, datasets: [{ label: config.label, data: rollingSeries.values, borderColor: config.color, backgroundColor: `${config.color}18`, borderWidth: 2, fill: true, pointRadius: 0, pointHitRadius: 8, tension: 0.28, spanGaps: false }] },
-          options: { animation: false, responsive: true, maintainAspectRatio: false, interaction: { intersect: false, mode: 'index' }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (context) => formatValue(config.key, context.parsed.y) } } }, scales: { x: { grid: { display: true, color: 'rgba(113, 129, 144, 0.12)', lineWidth: 1 }, ticks: { maxTicksLimit: 6, color: '#718190' } }, y: { grid: { color: '#e9eef2' }, ticks: { maxTicksLimit: 5, color: '#718190' } } } },
+          options: { animation: false, responsive: true, maintainAspectRatio: false, interaction: { intersect: false, mode: 'index' }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (context) => formatValue(config.key, context.parsed.y) } } }, scales: { x: { grid: { display: true, color: 'rgba(113, 129, 144, 0.12)', lineWidth: 1 }, ticks: { maxTicksLimit: 6, color: '#718190' } }, y: { grid: { color: '#e9eef2' }, ticks: { maxTicksLimit: 5, color: '#718190', callback: (value) => formatNumber(config.key, value) } } } },
         });
         this.series.set(config.key, rollingSeries);
         this.charts.set(config.key, chart);
@@ -63,7 +69,7 @@
       const label = this.#formatTime(timestamp);
       for (const config of LIVE_SERIES) {
         const value = measurements?.[config.key];
-        this.series.get(config.key).append(label, Number.isFinite(value) ? value : null);
+        this.series.get(config.key).append(label, quantizeValue(config.key, value));
         this.charts.get(config.key).update('none');
       }
     }
@@ -74,7 +80,7 @@
         rollingSeries.reset();
         for (const state of samples) {
           const value = state.measurements?.[config.key];
-          rollingSeries.append(this.#formatTime(state.timestamp), Number.isFinite(value) ? value : null);
+          rollingSeries.append(this.#formatTime(state.timestamp), quantizeValue(config.key, value));
         }
         this.charts.get(config.key).update('none');
       }

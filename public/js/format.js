@@ -20,8 +20,20 @@
     if (!Number.isFinite(value)) return '—';
     const display = TELEMETRY_DISPLAY[key];
     if (!display) return String(value);
-    return `${value.toFixed(display.decimals)} ${display.unit}`;
+    return `${formatTelemetryNumber(key, value)} ${display.unit}`;
   }
 
-  return { TELEMETRY_DISPLAY, formatTelemetryValue };
+  function formatTelemetryNumber(key, value) {
+    if (!Number.isFinite(value)) return '—';
+    const display = TELEMETRY_DISPLAY[key];
+    return display ? value.toFixed(display.decimals) : String(value);
+  }
+
+  function quantizeTelemetryValue(key, value) {
+    if (!Number.isFinite(value)) return null;
+    const display = TELEMETRY_DISPLAY[key];
+    return display ? Number(value.toFixed(display.decimals)) : value;
+  }
+
+  return { TELEMETRY_DISPLAY, formatTelemetryNumber, formatTelemetryValue, quantizeTelemetryValue };
 }));

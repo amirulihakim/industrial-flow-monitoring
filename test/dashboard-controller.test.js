@@ -10,7 +10,7 @@ class FakeElement {
 }
 
 function createElements() {
-  const elements = Object.fromEntries(['statusPanel', 'connectionState', 'connectionMessage', 'statusDevice', 'statusTimestamp', 'positiveTotal', 'negativeTotal', 'heatingTotal', 'coolingTotal', 'sourceBannerTitle', 'sourceBannerText'].map((key) => [key, new FakeElement()]));
+  const elements = Object.fromEntries(['statusPanel', 'pumpStatus', 'connectionState', 'connectionMessage', 'statusTimestamp', 'positiveTotal', 'negativeTotal', 'heatingTotal', 'coolingTotal', 'sourceBannerTitle', 'sourceBannerText'].map((key) => [key, new FakeElement()]));
   elements.deviceSelect = new FakeElement('PCWP');
   elements.deviceButtons = ['PCWP', 'SCWP1', 'SCWP2'].map((device) => { const button = new FakeElement(); button.dataset.device = device; return button; });
   elements.currentValues = Object.fromEntries(['flow_rate', 'flow_velocity', 'flow_percentage', 'instant_heat', 'temperature_in', 'temperature_out'].map((key) => [key, new FakeElement()]));
@@ -61,7 +61,9 @@ test('device switching immediately renders the already cached snapshot', () => {
 
 test('realtime state updates without latest-state polling', () => {
   const h = createHarness(); h.controller.start(); h.realtime.emit(createState('PCWP'));
-  assert.equal(h.elements.statusDevice.textContent, 'PCWP'); assert.equal(h.elements.statusPanel.dataset.state, 'online'); assert.equal(h.charts.samples.length, 1);
+  assert.equal(h.elements.statusPanel.dataset.state, 'online'); assert.equal(h.elements.connectionState.textContent, 'Online'); assert.equal(h.elements.pumpStatus.textContent, 'Running'); assert.equal(h.charts.samples.length, 1);
+  h.realtime.emit(createState('PCWP', { measurements: { ...createState().measurements, flow_rate: 0 } }));
+  assert.equal(h.elements.pumpStatus.textContent, 'Stopped');
 });
 
 test('fault telemetry renders chart gaps and unavailable values', () => {
@@ -77,10 +79,11 @@ test('disconnected and stale realtime states are visible', () => {
   assert.equal(h.elements.statusPanel.dataset.state, 'online', 'a newly received sample is connected even if its source clock is behind');
   h.advanceTime(5001); h.controller.checkStale();
   assert.equal(h.elements.statusPanel.dataset.state, 'stale');
+  assert.equal(h.elements.pumpStatus.textContent, 'Unknown');
 });
 
 test('old-device realtime events cannot overwrite the newly selected device', () => {
   const h = createHarness(); h.controller.changeDevice('SCWP2'); h.controller.handleTelemetry(createState('PCWP'));
-  assert.equal(h.elements.statusDevice.textContent, 'SCWP2'); assert.equal(h.charts.samples.length, 0);
+  assert.equal(h.controller.selectedDevice, 'SCWP2'); assert.equal(h.charts.samples.length, 0);
   h.controller.handleTelemetry(createState('SCWP2')); assert.equal(h.charts.samples.length, 1);
 });

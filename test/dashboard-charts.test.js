@@ -47,4 +47,17 @@ test('buffer replacement performs one non-animated update per chart', () => {
   assert.ok([...charts.series.values()].every((series) => series.values.length === 60 && series.values[0] === 1));
   assert.ok(instances.every((chart) => chart.config.options.scales.x.grid.display === true));
   assert.equal(instances[0].config.options.plugins.tooltip.callbacks.label({ parsed: { y: 27.037 } }), '27.04 m³/h');
+  assert.equal(instances[0].config.options.scales.y.ticks.callback(27.037), '27.04');
+});
+
+test('chart-facing values are quantized without mutating source telemetry', () => {
+  class FakeChart { update() {} }
+  const charts = new DashboardCharts({ ChartConstructor: FakeChart, documentObject: { getElementById() { return {}; } } });
+  charts.initialize();
+  const measurements = { flow_rate: 27.037, flow_velocity: 0.9564, flow_percentage: 72.736, instant_heat: 0.40667, temperature_in: 11.034, temperature_out: 12.06 };
+
+  charts.append('2026-01-01T00:00:00.000Z', measurements);
+
+  assert.deepEqual(Object.fromEntries([...charts.series].map(([key, series]) => [key, series.values[0]])), { flow_rate: 27.04, flow_velocity: 0.956, flow_percentage: 73, instant_heat: 0.407, temperature_in: 11, temperature_out: 12.1 });
+  assert.deepEqual(measurements, { flow_rate: 27.037, flow_velocity: 0.9564, flow_percentage: 72.736, instant_heat: 0.40667, temperature_in: 11.034, temperature_out: 12.06 });
 });

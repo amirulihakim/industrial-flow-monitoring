@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
-const { formatTelemetryValue } = require('../public/js/format');
+const { formatTelemetryNumber, formatTelemetryValue, quantizeTelemetryValue } = require('../public/js/format');
 
 test('telemetry display formatting applies canonical precision and units', () => {
   assert.equal(formatTelemetryValue('temperature_in', 11), '11.0 °C');
@@ -12,4 +12,12 @@ test('telemetry display formatting applies canonical precision and units', () =>
   assert.equal(formatTelemetryValue('heating_total', 0), '0.000 GJ');
   assert.equal(formatTelemetryValue('cooling_total', 190), '190.000 GJ');
   assert.equal(formatTelemetryValue('flow_rate', null), '—');
+});
+
+test('chart presentation helpers share precision metadata', () => {
+  assert.equal(quantizeTelemetryValue('temperature_in', 11.034), 11);
+  assert.equal(quantizeTelemetryValue('flow_rate', 27.037), 27.04);
+  assert.equal(quantizeTelemetryValue('flow_velocity', 0.9564), 0.956);
+  assert.equal(formatTelemetryNumber('temperature_in', 11), '11.0');
+  assert.equal(formatTelemetryNumber('instant_heat', 0.40667), '0.407');
 });
