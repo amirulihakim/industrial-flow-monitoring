@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
-const { LIVE_SERIES, RollingSeries } = require('../public/js/charts');
+const { DashboardCharts, LIVE_SERIES, RollingSeries } = require('../public/js/charts');
 
 test('live chart definitions use exactly the six canonical measurement keys', () => {
   assert.deepEqual(LIVE_SERIES.map(({ key }) => key), [
@@ -30,3 +30,19 @@ test('rolling series stays bounded and retains null as a chart gap', () => {
   assert.deepEqual(series.values, []);
 });
 
+test('buffer replacement performs one non-animated update per chart', () => {
+  const instances = [];
+  class FakeChart {
+    constructor() { this.updates = []; instances.push(this); }
+    update(mode) { this.updates.push(mode); }
+  }
+  const charts = new DashboardCharts({ ChartConstructor: FakeChart, documentObject: { getElementById() { return {}; } } });
+  charts.initialize();
+  const samples = Array.from({ length: 60 }, (_, index) => ({ timestamp: new Date(index * 1000).toISOString(), measurements: Object.fromEntries(LIVE_SERIES.map(({ key }) => [key, index + 1])) }));
+
+  charts.replace(samples);
+
+  assert.equal(instances.length, 6);
+  assert.ok(instances.every((chart) => chart.updates.length === 1 && chart.updates[0] === 'none'));
+  assert.ok([...charts.series.values()].every((series) => series.values.length === 60 && series.values[0] === 1));
+});

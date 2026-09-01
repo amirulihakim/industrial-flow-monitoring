@@ -21,21 +21,40 @@ function createState(device = 'PCWP', overrides = {}) {
 
 function createHarness() {
   const elements = createElements(); const calls = { scenarios: [] };
-  const charts = { initializeCount: 0, resetCount: 0, samples: [], initialize() { this.initializeCount += 1; }, reset() { this.resetCount += 1; }, append(timestamp, measurements) { this.samples.push({ timestamp, measurements }); } };
-  const realtime = { starts: 0, stops: 0, telemetry: new Set(), statuses: new Set(), latest: new Map(), start() { this.starts += 1; }, stop() { this.stops += 1; }, onTelemetry(listener) { this.telemetry.add(listener); return () => this.telemetry.delete(listener); }, onStatus(listener) { this.statuses.add(listener); return () => this.statuses.delete(listener); }, getLatest(device) { return this.latest.get(device) || null; }, emit(state) { this.latest.set(state.device, state); for (const listener of this.telemetry) listener(state); }, emitStatus(status) { for (const listener of this.statuses) listener(status); } };
+  const charts = { initializeCount: 0, resetCount: 0, samples: [], replacements: [], initialize() { this.initializeCount += 1; }, reset() { this.resetCount += 1; }, replace(samples) { this.replacements.push(samples); }, append(timestamp, measurements) { this.samples.push({ timestamp, measurements }); } };
+  const realtime = { starts: 0, stops: 0, telemetry: new Set(), buffers: new Set(), statuses: new Set(), latest: new Map(), selected: [], start() { this.starts += 1; }, stop() { this.stops += 1; }, selectDevice(device) { this.selected.push(device); }, onTelemetry(listener) { this.telemetry.add(listener); return () => this.telemetry.delete(listener); }, onBuffer(listener) { this.buffers.add(listener); return () => this.buffers.delete(listener); }, onStatus(listener) { this.statuses.add(listener); return () => this.statuses.delete(listener); }, getSamples(device) { return this.latest.has(device) ? [this.latest.get(device)] : []; }, emit(state) { this.latest.set(state.device, state); for (const listener of this.telemetry) listener(state); }, emitBuffer(device, samples) { for (const listener of this.buffers) listener(device, samples); }, emitStatus(status) { for (const listener of this.statuses) listener(status); } };
   const api = { async getLatest(device) { return createState(device); }, async setScenario(device, scenario) { calls.scenarios.push({ device, scenario }); return createState(device, { scenario }); } };
   const timers = []; const cleared = []; let nowMs = Date.parse('2026-01-01T00:00:02.000Z');
   const controller = new DashboardController({ api, realtime, charts, elements, now: () => nowMs, setIntervalFunction(callback, delay) { timers.push({ callback, delay }); return 1; }, clearIntervalFunction(id) { cleared.push(id); } });
   return { calls, charts, cleared, controller, elements, realtime, timers, advanceTime(milliseconds) { nowMs += milliseconds; } };
 }
 
-test('one controller owns one WebSocket client and one listener set across device switches', () => {
+test('one controller owns one realtime client and one listener set across device switches', () => {
   const h = createHarness(); h.controller.start(); h.controller.start();
   assert.equal(h.realtime.starts, 1); assert.equal(h.realtime.telemetry.size, 1); assert.equal(h.realtime.statuses.size, 1);
   assert.equal(h.timers.length, 1); assert.equal(h.timers[0].delay, 1000);
   h.controller.changeDevice('SCWP2');
-  assert.equal(h.controller.selectedDevice, 'SCWP2'); assert.equal(h.charts.resetCount, 1); assert.equal(h.realtime.starts, 1);
+  assert.equal(h.controller.selectedDevice, 'SCWP2'); assert.equal(h.charts.resetCount, 0); assert.equal(h.realtime.starts, 1);
   h.controller.stop(); assert.equal(h.realtime.stops, 1); assert.equal(h.realtime.telemetry.size, 0); assert.deepEqual(h.cleared, [1]);
+});
+
+test('selected-device RAM buffer replaces chart history with received samples only', () => {
+  const h = createHarness(); h.controller.start();
+  const samples = [createState('PCWP', { timestamp: '2026-01-01T00:00:00.000Z' }), createState('PCWP', { timestamp: '2026-01-01T00:00:01.000Z' })];
+  h.realtime.emitBuffer('PCWP', samples);
+  assert.equal(h.charts.resetCount, 0);
+  assert.equal(h.charts.replacements.length, 1);
+  assert.equal(h.charts.replacements[0].length, 2);
+  assert.ok(h.charts.replacements[0].every((sample) => Number.isFinite(sample.measurements.flow_rate)));
+});
+
+test('device switching immediately renders the already cached snapshot', () => {
+  const h = createHarness();
+  h.realtime.latest.set('SCWP1', createState('SCWP1'));
+  h.controller.changeDevice('SCWP1');
+  assert.equal(h.charts.replacements.length, 1);
+  assert.equal(h.charts.replacements[0][0].device, 'SCWP1');
+  assert.equal(h.realtime.selected.at(-1), 'SCWP1');
 });
 
 test('realtime state updates without latest-state polling', () => {

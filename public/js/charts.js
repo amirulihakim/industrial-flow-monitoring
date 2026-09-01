@@ -65,6 +65,18 @@
       }
     }
 
+    replace(samples) {
+      for (const config of LIVE_SERIES) {
+        const rollingSeries = this.series.get(config.key);
+        rollingSeries.reset();
+        for (const state of samples) {
+          const value = state.measurements?.[config.key];
+          rollingSeries.append(this.#formatTime(state.timestamp), Number.isFinite(value) ? value : null);
+        }
+        this.charts.get(config.key).update('none');
+      }
+    }
+
     reset() {
       for (const config of LIVE_SERIES) {
         this.series.get(config.key).reset();
@@ -81,4 +93,3 @@
 
   return { DashboardCharts, LIVE_SERIES, RollingSeries };
 }));
-

@@ -17,7 +17,7 @@
   }
 
   class DashboardController {
-    constructor({ api, realtime, charts, elements, now = () => Date.now(), setIntervalFunction = setInterval, clearIntervalFunction = clearInterval, staleCheckIntervalMs = STALE_CHECK_INTERVAL_MS, staleAfterMs = STALE_AFTER_MS }) {
+    constructor({ api, realtime, charts, elements, now = () => Date.now(), setIntervalFunction = globalThis.setInterval.bind(globalThis), clearIntervalFunction = globalThis.clearInterval.bind(globalThis), staleCheckIntervalMs = STALE_CHECK_INTERVAL_MS, staleAfterMs = STALE_AFTER_MS }) {
       this.api = api;
       this.realtime = realtime;
       this.charts = charts;
@@ -34,6 +34,7 @@
       this.lastState = null;
       this.lastTelemetryReceivedAt = null;
       this.unsubscribeTelemetry = null;
+      this.unsubscribeBuffer = null;
       this.unsubscribeStatus = null;
       this.boundDeviceChange = () => this.changeDevice(this.elements.deviceSelect.value);
       this.boundScenarioChange = () => this.changeScenario(this.elements.scenarioSelect.value);
@@ -47,7 +48,9 @@
       this.elements.scenarioSelect.addEventListener('change', this.boundScenarioChange);
       this.#setConnectionState('connecting', 'Connecting');
       this.unsubscribeTelemetry = this.realtime.onTelemetry((state) => this.handleTelemetry(state));
+      this.unsubscribeBuffer = this.realtime.onBuffer((device, samples) => this.handleBuffer(device, samples));
       this.unsubscribeStatus = this.realtime.onStatus((status) => this.handleTransportStatus(status));
+      this.realtime.selectDevice(this.selectedDevice);
       this.realtime.start();
       this.timer = this.setIntervalFunction(() => this.checkStale(), this.staleCheckIntervalMs);
     }
@@ -58,8 +61,10 @@
       this.requestVersion += 1;
       if (this.timer !== null) { this.clearIntervalFunction(this.timer); this.timer = null; }
       this.unsubscribeTelemetry?.();
+      this.unsubscribeBuffer?.();
       this.unsubscribeStatus?.();
       this.unsubscribeTelemetry = null;
+      this.unsubscribeBuffer = null;
       this.unsubscribeStatus = null;
       this.realtime.stop();
       this.elements.deviceSelect.removeEventListener('change', this.boundDeviceChange);
@@ -69,15 +74,15 @@
     changeDevice(device) {
       this.selectedDevice = device;
       this.requestVersion += 1;
-      this.charts.reset();
       this.#clearDisplayedValues();
       this.elements.statusDevice.textContent = device;
       this.#setConnectionState('connecting', 'Connecting');
       this.elements.connectionMessage.textContent = '';
       this.lastState = null;
       this.lastTelemetryReceivedAt = null;
-      const cached = this.realtime.getLatest(device);
-      if (cached) this.handleTelemetry(cached);
+      const cached = this.realtime.getSamples(device);
+      if (cached.length) this.handleBuffer(device, cached);
+      this.realtime.selectDevice(device);
     }
 
     async changeScenario(scenario) {
@@ -118,12 +123,21 @@
       this.#renderState(state, { appendChartPoint: true });
     }
 
+    handleBuffer(device, samples) {
+      if (device !== this.selectedDevice || !samples.length) return;
+      this.charts.replace(samples);
+      const newestState = samples.at(-1);
+      this.lastState = newestState;
+      this.lastTelemetryReceivedAt = this.now();
+      this.#renderState(newestState, { appendChartPoint: false });
+    }
+
     handleTransportStatus(status) {
       if (status.state === 'connected') {
-        if (!this.lastState) this.#setConnectionState('connecting', 'Waiting for telemetry');
+        if (!this.lastState) this.#setConnectionState('connecting', 'CONNECTING');
         return;
       }
-      if (status.state === 'connecting') { this.#setConnectionState('connecting', 'Connecting'); return; }
+      if (status.state === 'connecting') { this.#setConnectionState('connecting', 'CONNECTING'); return; }
       this.#renderDisconnected(new Error(status.message || 'Realtime transport unavailable.'));
     }
 
@@ -146,13 +160,13 @@
       this.elements.statusSource.textContent = state.source;
       this.elements.statusQuality.textContent = `${state.quality} / ${state.status}`;
       this.elements.statusTimestamp.textContent = Number.isFinite(timestampMs) ? new Date(timestampMs).toLocaleString() : 'Invalid timestamp';
-      this.elements.scenarioSelect.disabled = state.source !== 'simulation';
+      this.elements.scenarioSelect.disabled = true;
       if (state.scenario) this.elements.scenarioSelect.value = state.scenario;
-      this.elements.sourceBannerTitle.textContent = state.source === 'simulation' ? 'SIMULATION MODE' : `${String(state.source).toUpperCase()} SOURCE`;
-      this.elements.sourceBannerText.textContent = state.source === 'simulation' ? 'Synthetic telemetry for portfolio demonstration.' : 'Server-normalized external telemetry; topic and deployment are reconstruction-configured.';
+      this.elements.sourceBannerTitle.textContent = 'SIMULATION MODE';
+      this.elements.sourceBannerText.textContent = 'Synthetic telemetry generated by a portfolio ESP32.';
       if (fault) { this.#setConnectionState('fault', 'Sensor fault'); this.elements.connectionMessage.textContent = 'Telemetry is unavailable while the simulated sensor is in a fault state.'; }
       else if (stale) { this.#setConnectionState('stale', 'Stale telemetry'); this.elements.connectionMessage.textContent = 'The latest sample is older than the accepted live-data threshold.'; }
-      else { this.#setConnectionState('online', 'Online'); this.elements.connectionMessage.textContent = ''; }
+      else { this.#setConnectionState('online', 'LIVE'); this.elements.connectionMessage.textContent = ''; }
       this.#renderTotals(state.totals);
       this.#renderCurrentMeasurements(state.measurements);
       if (appendChartPoint) this.charts.append(state.timestamp, state.measurements);
@@ -177,8 +191,7 @@
       this.elements.statusSource.textContent = 'Unavailable';
       this.elements.statusQuality.textContent = 'unknown / unavailable';
       this.elements.connectionMessage.textContent = `Realtime transport unavailable: ${error.message}`;
-      this.#clearDisplayedValues();
-      this.charts.append(new Date(this.now()).toISOString(), null);
+      if (!this.lastState) this.#clearDisplayedValues();
     }
 
     #clearDisplayedValues() { this.#renderTotals(null); this.#renderCurrentMeasurements(null); }
@@ -190,14 +203,12 @@
   function bootstrap() {
     const elements = collectElements(document);
     const charts = new DashboardCharts({ ChartConstructor: Chart, documentObject: document, maximumPoints: 60 });
-    const controller = new DashboardController({ api: new DashboardApi(), realtime: new RealtimeClient(), charts, elements });
+    const staticDemoApi = {
+      async setScenario() { throw new Error('Scenario changes are unavailable in the static realtime demo.'); },
+    };
+    const controller = new DashboardController({ api: staticDemoApi, realtime: new RealtimeClient(), charts, elements });
     controller.start();
     window.dashboardController = controller;
-    const historyElements = collectHistoryElements(document);
-    const historyChart = new HistoricalChart({ ChartConstructor: Chart, canvas: document.getElementById('historical-chart') });
-    const historyController = new HistoricalController({ api: new DashboardApi(), chart: historyChart, elements: historyElements });
-    historyController.start();
-    window.historyController = historyController;
   }
 
   if (typeof document !== 'undefined') document.addEventListener('DOMContentLoaded', bootstrap, { once: true });
