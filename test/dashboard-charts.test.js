@@ -33,7 +33,7 @@ test('rolling series stays bounded and retains null as a chart gap', () => {
 test('buffer replacement performs one non-animated update per chart', () => {
   const instances = [];
   class FakeChart {
-    constructor() { this.updates = []; instances.push(this); }
+    constructor(_canvas, config) { this.config = config; this.updates = []; instances.push(this); }
     update(mode) { this.updates.push(mode); }
   }
   const charts = new DashboardCharts({ ChartConstructor: FakeChart, documentObject: { getElementById() { return {}; } } });
@@ -45,4 +45,6 @@ test('buffer replacement performs one non-animated update per chart', () => {
   assert.equal(instances.length, 6);
   assert.ok(instances.every((chart) => chart.updates.length === 1 && chart.updates[0] === 'none'));
   assert.ok([...charts.series.values()].every((series) => series.values.length === 60 && series.values[0] === 1));
+  assert.ok(instances.every((chart) => chart.config.options.scales.x.grid.display === true));
+  assert.equal(instances[0].config.options.plugins.tooltip.callbacks.label({ parsed: { y: 27.037 } }), '27.04 m³/h');
 });

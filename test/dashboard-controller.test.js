@@ -6,11 +6,13 @@ class FakeElement {
   constructor(value = '') { this.value = value; this.textContent = ''; this.disabled = false; this.dataset = {}; this.listeners = new Map(); }
   addEventListener(type, listener) { this.listeners.set(type, [...(this.listeners.get(type) || []), listener]); }
   removeEventListener(type, listener) { this.listeners.set(type, (this.listeners.get(type) || []).filter((item) => item !== listener)); }
+  setAttribute(name, value) { if (name === 'aria-pressed') this.ariaPressed = value; }
 }
 
 function createElements() {
-  const elements = Object.fromEntries(['scenarioFeedback', 'statusPanel', 'connectionState', 'connectionMessage', 'statusDevice', 'statusScenario', 'statusSource', 'statusQuality', 'statusTimestamp', 'positiveTotal', 'negativeTotal', 'netTotal', 'heatingTotal', 'coolingTotal', 'sourceBannerTitle', 'sourceBannerText'].map((key) => [key, new FakeElement()]));
-  elements.deviceSelect = new FakeElement('PCWP'); elements.scenarioSelect = new FakeElement('normal');
+  const elements = Object.fromEntries(['statusPanel', 'connectionState', 'connectionMessage', 'statusDevice', 'statusTimestamp', 'positiveTotal', 'negativeTotal', 'heatingTotal', 'coolingTotal', 'sourceBannerTitle', 'sourceBannerText'].map((key) => [key, new FakeElement()]));
+  elements.deviceSelect = new FakeElement('PCWP');
+  elements.deviceButtons = ['PCWP', 'SCWP1', 'SCWP2'].map((device) => { const button = new FakeElement(); button.dataset.device = device; return button; });
   elements.currentValues = Object.fromEntries(['flow_rate', 'flow_velocity', 'flow_percentage', 'instant_heat', 'temperature_in', 'temperature_out'].map((key) => [key, new FakeElement()]));
   return elements;
 }
@@ -62,22 +64,17 @@ test('realtime state updates without latest-state polling', () => {
   assert.equal(h.elements.statusDevice.textContent, 'PCWP'); assert.equal(h.elements.statusPanel.dataset.state, 'online'); assert.equal(h.charts.samples.length, 1);
 });
 
-test('scenario switching affects only the selected simulation device', async () => {
-  const h = createHarness(); h.controller.changeDevice('SCWP1'); await h.controller.changeScenario('low_flow');
-  assert.deepEqual(h.calls.scenarios, [{ device: 'SCWP1', scenario: 'low_flow' }]); assert.match(h.elements.scenarioFeedback.textContent, /SCWP1/);
-});
-
 test('fault telemetry renders chart gaps and unavailable values', () => {
   const h = createHarness(); const nulls = Object.fromEntries(['flow_rate', 'flow_velocity', 'flow_percentage', 'instant_heat', 'temperature_in', 'temperature_out'].map((key) => [key, null]));
   h.controller.handleTelemetry(createState('PCWP', { scenario: 'sensor_fault', status: 'fault', quality: 'fault', measurements: nulls, totals: { positive_total: null, negative_total: null, heating_total: null, cooling_total: null } }));
-  assert.equal(h.elements.statusPanel.dataset.state, 'fault'); assert.equal(h.elements.positiveTotal.textContent, '—'); assert.equal(h.charts.samples.at(-1).measurements.flow_rate, null);
+  assert.equal(h.elements.statusPanel.dataset.state, 'disconnected'); assert.equal(h.elements.positiveTotal.textContent, '—'); assert.equal(h.charts.samples.at(-1).measurements.flow_rate, null);
 });
 
 test('disconnected and stale realtime states are visible', () => {
   const h = createHarness(); h.controller.start(); h.realtime.emitStatus({ state: 'disconnected', message: 'socket closed' });
   assert.equal(h.elements.statusPanel.dataset.state, 'disconnected'); assert.match(h.elements.connectionMessage.textContent, /socket closed/);
   h.realtime.emit(createState('PCWP', { timestamp: '2025-12-31T23:59:00.000Z' }));
-  assert.equal(h.elements.statusPanel.dataset.state, 'online', 'a newly received sample is live even if its source clock is behind');
+  assert.equal(h.elements.statusPanel.dataset.state, 'online', 'a newly received sample is connected even if its source clock is behind');
   h.advanceTime(5001); h.controller.checkStale();
   assert.equal(h.elements.statusPanel.dataset.state, 'stale');
 });

@@ -3,13 +3,16 @@
   if (typeof module === 'object' && module.exports) module.exports = exported;
   else Object.assign(root, exported);
 }(typeof globalThis !== 'undefined' ? globalThis : this, function createChartsModule() {
+  const formatValue = typeof formatTelemetryValue !== 'undefined'
+    ? formatTelemetryValue
+    : require('./format').formatTelemetryValue;
   const LIVE_SERIES = Object.freeze([
-    Object.freeze({ key: 'flow_rate', label: 'Flow rate', canvasId: 'chart-flow-rate', color: '#3d74b7' }),
-    Object.freeze({ key: 'flow_velocity', label: 'Flow velocity', canvasId: 'chart-flow-velocity', color: '#168aad' }),
-    Object.freeze({ key: 'flow_percentage', label: 'Flow percentage', canvasId: 'chart-flow-percentage', color: '#d9912b' }),
-    Object.freeze({ key: 'instant_heat', label: 'Instantaneous heat', canvasId: 'chart-instant-heat', color: '#cf5b66' }),
-    Object.freeze({ key: 'temperature_in', label: 'Inlet temperature', canvasId: 'chart-temperature-in', color: '#7357b3' }),
-    Object.freeze({ key: 'temperature_out', label: 'Outlet temperature', canvasId: 'chart-temperature-out', color: '#2f9e72' }),
+    Object.freeze({ key: 'flow_rate', label: 'Flow Rate (m³/h)', canvasId: 'chart-flow-rate', color: '#3d74b7' }),
+    Object.freeze({ key: 'flow_velocity', label: 'Flow Velocity (m/s)', canvasId: 'chart-flow-velocity', color: '#168aad' }),
+    Object.freeze({ key: 'flow_percentage', label: 'Flow Percentage (%)', canvasId: 'chart-flow-percentage', color: '#d9912b' }),
+    Object.freeze({ key: 'instant_heat', label: 'Instantaneous Heat (GJ/h)', canvasId: 'chart-instant-heat', color: '#cf5b66' }),
+    Object.freeze({ key: 'temperature_in', label: 'Input Temperature (°C)', canvasId: 'chart-temperature-in', color: '#7357b3' }),
+    Object.freeze({ key: 'temperature_out', label: 'Output Temperature (°C)', canvasId: 'chart-temperature-out', color: '#2f9e72' }),
   ]);
 
   class RollingSeries {
@@ -49,7 +52,7 @@
         const chart = new this.ChartConstructor(canvas, {
           type: 'line',
           data: { labels: rollingSeries.labels, datasets: [{ label: config.label, data: rollingSeries.values, borderColor: config.color, backgroundColor: `${config.color}18`, borderWidth: 2, fill: true, pointRadius: 0, pointHitRadius: 8, tension: 0.28, spanGaps: false }] },
-          options: { animation: false, responsive: true, maintainAspectRatio: false, interaction: { intersect: false, mode: 'index' }, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { maxTicksLimit: 6, color: '#718190' } }, y: { grid: { color: '#e9eef2' }, ticks: { maxTicksLimit: 5, color: '#718190' } } } },
+          options: { animation: false, responsive: true, maintainAspectRatio: false, interaction: { intersect: false, mode: 'index' }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (context) => formatValue(config.key, context.parsed.y) } } }, scales: { x: { grid: { display: true, color: 'rgba(113, 129, 144, 0.12)', lineWidth: 1 }, ticks: { maxTicksLimit: 6, color: '#718190' } }, y: { grid: { color: '#e9eef2' }, ticks: { maxTicksLimit: 5, color: '#718190' } } } },
         });
         this.series.set(config.key, rollingSeries);
         this.charts.set(config.key, chart);
