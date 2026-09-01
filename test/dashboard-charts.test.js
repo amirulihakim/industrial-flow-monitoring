@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
-const { DashboardCharts, LIVE_SERIES, RollingSeries, computeYAxisBounds, shouldShowTimestampTick } = require('../public/js/charts');
+const { DashboardCharts, LIVE_SERIES, RollingSeries, computeYAxisBounds, computeYAxisTickStep, shouldShowTimestampTick } = require('../public/js/charts');
 
 test('live chart definitions use exactly the six canonical measurement keys', () => {
   assert.deepEqual(LIVE_SERIES.map(({ key }) => key), [
@@ -47,16 +47,40 @@ test('buffer replacement performs one non-animated update per chart', () => {
   assert.ok([...charts.series.values()].every((series) => series.values.length === 60 && series.values[0] === 1));
   assert.ok(instances.every((chart) => chart.config.options.scales.x.grid.display === true));
   assert.equal(instances[0].config.options.plugins.tooltip.callbacks.label({ parsed: { y: 27.037 } }), '27.04 m³/h');
+  assert.equal(instances[0].config.options.plugins.tooltip.callbacks.title([{ label: '12:52:34 AM' }]), '12:52:34 AM');
   assert.equal(instances[0].config.options.scales.y.ticks.callback(27.037), '27.04');
   const xTicks = instances[0].config.options.scales.x.ticks;
   const tickContext = { getLabelForValue: (value) => `time-${value}` };
   assert.equal(xTicks.autoSkip, false);
+  assert.equal(xTicks.minRotation, 0);
+  assert.equal(xTicks.maxRotation, 0);
   assert.equal(xTicks.callback.call(tickContext, 0, 0, [{}, {}]), '');
-  assert.equal(xTicks.callback.call(tickContext, 59, 5, [{}, {}, {}, {}, {}, {}]), 'time-59');
+  assert.equal(xTicks.callback.call(tickContext, 59, 5, [{}, {}, {}, {}, {}, {}]), 'Now');
   assert.equal(instances[0].config.options.scales.y.grace, undefined);
   assert.equal(instances[0].config.options.scales.y.min, -6.08);
   assert.equal(instances[0].config.options.scales.y.max, 67.08);
   assert.ok(instances.every((chart) => chart.options.scales.y.min < 1 && chart.options.scales.y.max > 60));
+});
+
+test('flat low-precision series uses distinct formatted y-axis ticks', () => {
+  const instances = [];
+  class FakeChart {
+    constructor(_canvas, config) { this.options = config.options; this.updates = []; instances.push(this); }
+    update(mode) { this.updates.push(mode); }
+  }
+  const charts = new DashboardCharts({ ChartConstructor: FakeChart, documentObject: { getElementById() { return {}; } } });
+  charts.initialize();
+  const samples = Array.from({ length: 60 }, (_, index) => ({ timestamp: new Date(index * 1000).toISOString(), measurements: { flow_percentage: 19 } }));
+
+  charts.replace(samples);
+
+  const percentageChart = instances[2];
+  const { min, max, ticks } = percentageChart.options.scales.y;
+  assert.ok(min < 19 && max > 19);
+  assert.equal(ticks.stepSize, 1);
+  const labels = [18, 19, 20].map((value) => ticks.callback(value));
+  assert.deepEqual(labels, ['18', '19', '20']);
+  assert.equal(new Set(labels).size, labels.length);
 });
 
 test('computed y-axis bounds pad ranged and flat visible data', () => {
@@ -67,6 +91,15 @@ test('computed y-axis bounds pad ranged and flat visible data', () => {
   assert.ok(flat.min < 15);
   assert.ok(flat.max > 15);
   assert.equal(computeYAxisBounds([null, Number.NaN, undefined]), null);
+  assert.equal(computeYAxisTickStep({ min: 14.776, max: 15.024 }, 1), 0.1);
+});
+
+test('current-value colors reuse their chart series colors', () => {
+  class FakeChart { constructor(_canvas, config) { this.options = config.options; } update() {} }
+  const elements = new Map(LIVE_SERIES.flatMap((series) => [[series.canvasId, {}], [series.valueId, { style: {} }]]));
+  const charts = new DashboardCharts({ ChartConstructor: FakeChart, documentObject: { getElementById(id) { return elements.get(id); } } });
+  charts.initialize();
+  for (const series of LIVE_SERIES) assert.equal(elements.get(series.valueId).style.color, series.color);
 });
 
 test('timestamp thinning always preserves the newest label without removing samples', () => {

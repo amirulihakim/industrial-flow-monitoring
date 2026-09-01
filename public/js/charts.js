@@ -12,13 +12,16 @@
   const quantizeValue = typeof quantizeTelemetryValue !== 'undefined'
     ? quantizeTelemetryValue
     : require('./format').quantizeTelemetryValue;
+  const displayMetadata = typeof TELEMETRY_DISPLAY !== 'undefined'
+    ? TELEMETRY_DISPLAY
+    : require('./format').TELEMETRY_DISPLAY;
   const LIVE_SERIES = Object.freeze([
-    Object.freeze({ key: 'flow_rate', label: 'Flow Rate (m³/h)', canvasId: 'chart-flow-rate', color: '#3d74b7' }),
-    Object.freeze({ key: 'flow_velocity', label: 'Flow Velocity (m/s)', canvasId: 'chart-flow-velocity', color: '#168aad' }),
-    Object.freeze({ key: 'flow_percentage', label: 'Flow Percentage (%)', canvasId: 'chart-flow-percentage', color: '#d9912b' }),
-    Object.freeze({ key: 'instant_heat', label: 'Instantaneous Heat (GJ/h)', canvasId: 'chart-instant-heat', color: '#cf5b66' }),
-    Object.freeze({ key: 'temperature_in', label: 'Input Temperature (°C)', canvasId: 'chart-temperature-in', color: '#7357b3' }),
-    Object.freeze({ key: 'temperature_out', label: 'Output Temperature (°C)', canvasId: 'chart-temperature-out', color: '#2f9e72' }),
+    Object.freeze({ key: 'flow_rate', label: 'Flow Rate (m³/h)', canvasId: 'chart-flow-rate', valueId: 'current-flow-rate', color: '#3d74b7' }),
+    Object.freeze({ key: 'flow_velocity', label: 'Flow Velocity (m/s)', canvasId: 'chart-flow-velocity', valueId: 'current-flow-velocity', color: '#168aad' }),
+    Object.freeze({ key: 'flow_percentage', label: 'Flow Percentage (%)', canvasId: 'chart-flow-percentage', valueId: 'current-flow-percentage', color: '#d9912b' }),
+    Object.freeze({ key: 'instant_heat', label: 'Instantaneous Heat (GJ/h)', canvasId: 'chart-instant-heat', valueId: 'current-instant-heat', color: '#cf5b66' }),
+    Object.freeze({ key: 'temperature_in', label: 'Input Temperature (°C)', canvasId: 'chart-temperature-in', valueId: 'current-temperature-in', color: '#7357b3' }),
+    Object.freeze({ key: 'temperature_out', label: 'Output Temperature (°C)', canvasId: 'chart-temperature-out', valueId: 'current-temperature-out', color: '#2f9e72' }),
   ]);
 
   function shouldShowTimestampTick(index, tickCount, maximumLabels = 6) {
@@ -28,7 +31,7 @@
     return index % interval === 0;
   }
 
-  function computeYAxisBounds(values, paddingRatio = 0.12) {
+  function computeYAxisBounds(values, paddingRatio = 0.12, minimumStep = 0.001) {
     const numericValues = values.filter(Number.isFinite);
     if (!numericValues.length) return null;
     const minimum = Math.min(...numericValues);
@@ -36,8 +39,14 @@
     const range = maximum - minimum;
     const margin = range > 0
       ? range * paddingRatio
-      : Math.max(Math.abs(minimum) * 0.01, 0.001);
+      : Math.max(Math.abs(minimum) * 0.01, minimumStep * 1.5);
     return { min: minimum - margin, max: maximum + margin };
+  }
+
+  function computeYAxisTickStep(bounds, decimals) {
+    const quantum = 10 ** -decimals;
+    const rawStep = (bounds.max - bounds.min) / 4;
+    return Number((Math.max(quantum, Math.ceil(rawStep / quantum) * quantum)).toFixed(decimals));
   }
 
   class RollingSeries {
@@ -73,12 +82,15 @@
       for (const config of LIVE_SERIES) {
         const rollingSeries = new RollingSeries(this.maximumPoints);
         const canvas = this.document.getElementById(config.canvasId);
+        const currentValue = this.document.getElementById(config.valueId);
         if (!canvas) throw new Error(`Missing chart canvas: ${config.canvasId}`);
+        if (currentValue?.style) currentValue.style.color = config.color;
         const chart = new this.ChartConstructor(canvas, {
           type: 'line',
           data: { labels: rollingSeries.labels, datasets: [{ label: config.label, data: rollingSeries.values, borderColor: config.color, backgroundColor: `${config.color}18`, borderWidth: 2, fill: true, pointRadius: 0, pointHitRadius: 8, tension: 0.28, spanGaps: false }] },
-          options: { animation: false, responsive: true, maintainAspectRatio: false, interaction: { intersect: false, mode: 'index' }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (context) => formatValue(config.key, context.parsed.y) } } }, scales: { x: { grid: { display: true, color: 'rgba(113, 129, 144, 0.12)', lineWidth: 1 }, ticks: { autoSkip: false, color: '#718190', callback(value, index, ticks) { return shouldShowTimestampTick(index, ticks.length) ? this.getLabelForValue(value) : ''; } } }, y: { grid: { color: '#e9eef2' }, ticks: { maxTicksLimit: 5, color: '#718190', callback: (value) => formatNumber(config.key, value) } } } },
+          options: { animation: false, responsive: true, maintainAspectRatio: false, interaction: { intersect: false, mode: 'index' }, plugins: { legend: { display: false }, tooltip: { callbacks: { title: (items) => items[0]?.label || '', label: (context) => formatValue(config.key, context.parsed.y) } } }, scales: { x: { grid: { display: true, color: (context) => shouldShowTimestampTick(context.index, context.chart.scales.x.ticks.length) ? 'rgba(113, 129, 144, 0.12)' : 'transparent', lineWidth: 1 }, ticks: { autoSkip: false, minRotation: 0, maxRotation: 0, color: '#718190', callback(value, index, ticks) { if (!shouldShowTimestampTick(index, ticks.length)) return ''; return index === ticks.length - 1 ? 'Now' : this.getLabelForValue(value); } } }, y: { grid: { color: '#e9eef2' }, ticks: { maxTicksLimit: 5, color: '#718190', callback: (value) => formatNumber(config.key, value) } } } },
         });
+        chart.$telemetryKey = config.key;
         this.series.set(config.key, rollingSeries);
         this.charts.set(config.key, chart);
       }
@@ -116,19 +128,24 @@
         const chart = this.charts.get(config.key);
         delete chart.options.scales.y.min;
         delete chart.options.scales.y.max;
+        delete chart.options.scales.y.ticks.stepSize;
         chart.update('none');
       }
     }
 
     #applyYAxisBounds(chart, values) {
-      const bounds = computeYAxisBounds(values);
+      const decimals = displayMetadata[chart.$telemetryKey]?.decimals ?? 3;
+      const minimumStep = 10 ** -decimals;
+      const bounds = computeYAxisBounds(values, 0.12, minimumStep);
       if (!bounds) {
         delete chart.options.scales.y.min;
         delete chart.options.scales.y.max;
+        delete chart.options.scales.y.ticks.stepSize;
         return;
       }
       chart.options.scales.y.min = bounds.min;
       chart.options.scales.y.max = bounds.max;
+      chart.options.scales.y.ticks.stepSize = computeYAxisTickStep(bounds, decimals);
     }
 
     #formatTime(timestamp) {
@@ -138,5 +155,5 @@
     }
   }
 
-  return { DashboardCharts, LIVE_SERIES, RollingSeries, computeYAxisBounds, shouldShowTimestampTick };
+  return { DashboardCharts, LIVE_SERIES, RollingSeries, computeYAxisBounds, computeYAxisTickStep, shouldShowTimestampTick };
 }));
