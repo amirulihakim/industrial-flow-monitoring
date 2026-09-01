@@ -31,22 +31,32 @@
     return index % interval === 0;
   }
 
-  function computeYAxisBounds(values, paddingRatio = 0.12, minimumStep = 0.001) {
+  function niceStepAtLeast(value, minimumStep) {
+    if (!Number.isFinite(value) || value <= 0) return minimumStep;
+    const exponent = Math.floor(Math.log10(value));
+    const magnitude = 10 ** exponent;
+    const fraction = value / magnitude;
+    const niceFraction = fraction <= 1 ? 1 : fraction <= 2 ? 2 : fraction <= 5 ? 5 : 10;
+    return Math.max(minimumStep, niceFraction * magnitude);
+  }
+
+  function computeNiceYAxisScale(values, decimals, targetIntervals = 4) {
     const numericValues = values.filter(Number.isFinite);
     if (!numericValues.length) return null;
     const minimum = Math.min(...numericValues);
     const maximum = Math.max(...numericValues);
+    const minimumStep = 10 ** -decimals;
     const range = maximum - minimum;
-    const margin = range > 0
-      ? range * paddingRatio
-      : Math.max(Math.abs(minimum) * 0.01, minimumStep * 1.5);
-    return { min: minimum - margin, max: maximum + margin };
-  }
-
-  function computeYAxisTickStep(bounds, decimals) {
-    const quantum = 10 ** -decimals;
-    const rawStep = (bounds.max - bounds.min) / 4;
-    return Number((Math.max(quantum, Math.ceil(rawStep / quantum) * quantum)).toFixed(decimals));
+    const stepSize = range === 0 ? minimumStep : niceStepAtLeast(range / targetIntervals, minimumStep);
+    const precision = Math.max(decimals, Math.max(0, -Math.floor(Math.log10(stepSize))) + 2);
+    let axisMinimum = Math.floor(minimum / stepSize) * stepSize;
+    let axisMaximum = Math.ceil(maximum / stepSize) * stepSize;
+    const tolerance = stepSize * 1e-9;
+    if (Math.abs(axisMinimum - minimum) <= tolerance) axisMinimum -= stepSize;
+    if (Math.abs(axisMaximum - maximum) <= tolerance) axisMaximum += stepSize;
+    axisMinimum = Number(axisMinimum.toFixed(precision));
+    axisMaximum = Number(axisMaximum.toFixed(precision));
+    return { min: axisMinimum, max: axisMaximum, stepSize };
   }
 
   class RollingSeries {
@@ -135,17 +145,16 @@
 
     #applyYAxisBounds(chart, values) {
       const decimals = displayMetadata[chart.$telemetryKey]?.decimals ?? 3;
-      const minimumStep = 10 ** -decimals;
-      const bounds = computeYAxisBounds(values, 0.12, minimumStep);
-      if (!bounds) {
+      const scale = computeNiceYAxisScale(values, decimals);
+      if (!scale) {
         delete chart.options.scales.y.min;
         delete chart.options.scales.y.max;
         delete chart.options.scales.y.ticks.stepSize;
         return;
       }
-      chart.options.scales.y.min = bounds.min;
-      chart.options.scales.y.max = bounds.max;
-      chart.options.scales.y.ticks.stepSize = computeYAxisTickStep(bounds, decimals);
+      chart.options.scales.y.min = scale.min;
+      chart.options.scales.y.max = scale.max;
+      chart.options.scales.y.ticks.stepSize = scale.stepSize;
     }
 
     #formatTime(timestamp) {
@@ -155,5 +164,5 @@
     }
   }
 
-  return { DashboardCharts, LIVE_SERIES, RollingSeries, computeYAxisBounds, computeYAxisTickStep, shouldShowTimestampTick };
+  return { DashboardCharts, LIVE_SERIES, RollingSeries, computeNiceYAxisScale, shouldShowTimestampTick };
 }));

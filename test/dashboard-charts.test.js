@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
-const { DashboardCharts, LIVE_SERIES, RollingSeries, computeYAxisBounds, computeYAxisTickStep, shouldShowTimestampTick } = require('../public/js/charts');
+const { DashboardCharts, LIVE_SERIES, RollingSeries, computeNiceYAxisScale, shouldShowTimestampTick } = require('../public/js/charts');
 
 test('live chart definitions use exactly the six canonical measurement keys', () => {
   assert.deepEqual(LIVE_SERIES.map(({ key }) => key), [
@@ -57,8 +57,11 @@ test('buffer replacement performs one non-animated update per chart', () => {
   assert.equal(xTicks.callback.call(tickContext, 0, 0, [{}, {}]), '');
   assert.equal(xTicks.callback.call(tickContext, 59, 5, [{}, {}, {}, {}, {}, {}]), 'Now');
   assert.equal(instances[0].config.options.scales.y.grace, undefined);
-  assert.equal(instances[0].config.options.scales.y.min, -6.08);
-  assert.equal(instances[0].config.options.scales.y.max, 67.08);
+  assert.equal(instances[0].config.options.scales.y.suggestedMin, undefined);
+  assert.equal(instances[0].config.options.scales.y.suggestedMax, undefined);
+  assert.equal(instances[0].config.options.scales.y.min, 0);
+  assert.equal(instances[0].config.options.scales.y.max, 80);
+  assert.equal(instances[0].config.options.scales.y.ticks.stepSize, 20);
   assert.ok(instances.every((chart) => chart.options.scales.y.min < 1 && chart.options.scales.y.max > 60));
 });
 
@@ -83,15 +86,18 @@ test('flat low-precision series uses distinct formatted y-axis ticks', () => {
   assert.equal(new Set(labels).size, labels.length);
 });
 
-test('computed y-axis bounds pad ranged and flat visible data', () => {
-  const ranged = computeYAxisBounds([14.8, 14.9, 15]);
-  assert.ok(Math.abs(ranged.min - 14.776) < Number.EPSILON * 16);
-  assert.ok(Math.abs(ranged.max - 15.024) < Number.EPSILON * 16);
-  const flat = computeYAxisBounds([15, 15]);
-  assert.ok(flat.min < 15);
-  assert.ok(flat.max > 15);
-  assert.equal(computeYAxisBounds([null, Number.NaN, undefined]), null);
-  assert.equal(computeYAxisTickStep({ min: 14.776, max: 15.024 }, 1), 0.1);
+test('nice temperature axis aligns ticks strictly outside visible extrema', () => {
+  const scale = computeNiceYAxisScale([14.7, 14.8, 14.9], 1);
+  assert.deepEqual(scale, { min: 14.6, max: 15, stepSize: 0.1 });
+  assert.ok(scale.min < 14.7);
+  assert.ok(scale.max > 14.9);
+  const ticks = Array.from({ length: Math.round((scale.max - scale.min) / scale.stepSize) + 1 }, (_, index) => scale.min + index * scale.stepSize);
+  const labels = ticks.map((value) => value.toFixed(1));
+  assert.equal(new Set(labels).size, labels.length);
+  assert.ok(ticks.every((value, index) => index === 0 || Math.abs(value - ticks[index - 1] - scale.stepSize) < 1e-9));
+  assert.equal(labels[0], '14.6');
+  assert.equal(labels.at(-1), '15.0');
+  assert.equal(computeNiceYAxisScale([null, Number.NaN, undefined], 1), null);
 });
 
 test('current-value colors reuse their chart series colors', () => {

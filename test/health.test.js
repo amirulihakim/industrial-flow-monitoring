@@ -56,6 +56,8 @@ test('GET / serves the unified reconstruction dashboard', async () => {
   const statusPanel = body.match(/<section class="status-panel"[\s\S]*?<\/section>/)?.[0] || '';
   const statusOrder = [...statusPanel.matchAll(/class="status-kicker"[^>]*>([^<]+)/g)].map((match) => match[1]);
   assert.deepEqual(statusOrder, ['Connection Status', 'Device Status', 'Plant', 'Device', 'Last Update']);
+  assert.equal((body.match(/class="section-title"/g) || []).length, 2);
+  assert.equal((body.match(/class="dashboard-section"/g) || []).length, 2);
 });
 
 test('GET /styles.css serves the dashboard stylesheet', async () => {
@@ -63,7 +65,11 @@ test('GET /styles.css serves the dashboard stylesheet', async () => {
 
   assert.equal(response.status, 200);
   assert.match(response.headers.get('content-type'), /^text\/css/);
-  assert.match(await response.text(), /\.dashboard-shell/);
+  const stylesheet = await response.text();
+  assert.match(stylesheet, /\.dashboard-shell/);
+  assert.match(stylesheet, /\.status-menu button\s*\{[^}]*text-align:center/);
+  assert.match(stylesheet, /\.dashboard-section\s*\{[^}]*margin-top/);
+  assert.match(stylesheet, /\.section-title\s*\{[^}]*font-size:[^}]*font-weight:[^}]*line-height:/);
 });
 
 test('GET /vendor/chart.js serves the single pinned Chart.js build', async () => {

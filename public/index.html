@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Portfolio-safe industrial flowmeter monitoring reconstruction.">
   <title>Real-Time Dashboard Simulation</title>
-  <link rel="stylesheet" href="./styles.css?v=20260902-2">
+  <link rel="stylesheet" href="./styles.css?v=20260902-3">
   <script defer src="./vendor/chart.js"></script>
   <script defer src="./vendor/mqtt.js"></script>
   <script defer src="./js/config.js"></script>
   <script defer src="./js/format.js"></script>
-  <script defer src="./js/charts.js?v=20260902-2"></script>
+  <script defer src="./js/charts.js?v=20260902-3"></script>
   <script defer src="./js/realtime.js"></script>
   <script defer src="./js/app.js?v=20260902-1"></script>
 </head>
@@ -46,8 +46,8 @@
       <p id="connection-message" class="connection-message" role="alert" aria-live="assertive"></p>
     </section>
 
-    <section aria-labelledby="totals-title">
-      <div class="section-heading"><div><h2 id="totals-title">Totalizers</h2><p class="section-support">Accumulated Values</p></div></div>
+    <section class="dashboard-section" aria-labelledby="totals-title">
+      <div class="section-heading"><div><h2 id="totals-title" class="section-title">Totalizers</h2><p class="section-support">Accumulated Values</p></div></div>
       <div class="kpi-grid">
         <article class="kpi-card accent-blue"><span>Positive total</span><strong id="positive-total">—</strong><small>positive_total</small></article>
         <article class="kpi-card accent-red"><span>Negative total</span><strong id="negative-total">—</strong><small>negative_total</small></article>
@@ -56,8 +56,8 @@
       </div>
     </section>
 
-    <section aria-labelledby="trends-title">
-      <div class="section-heading"><div><h2 id="trends-title">Real-Time Graphs</h2><p class="section-support">Live Trends</p></div></div>
+    <section class="dashboard-section" aria-labelledby="trends-title">
+      <div class="section-heading"><div><h2 id="trends-title" class="section-title">Real-Time Graphs</h2><p class="section-support">Live Trends</p></div></div>
       <div class="chart-grid">
         <article class="chart-card"><div><h3>Flow Rate (m³/h)</h3><span id="current-flow-rate">—</span></div><canvas id="chart-flow-rate" aria-label="Flow rate live trend"></canvas></article>
         <article class="chart-card"><div><h3>Flow Velocity (m/s)</h3><span id="current-flow-velocity">—</span></div><canvas id="chart-flow-velocity" aria-label="Flow velocity live trend"></canvas></article>
