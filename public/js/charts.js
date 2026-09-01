@@ -58,7 +58,7 @@
         const chart = new this.ChartConstructor(canvas, {
           type: 'line',
           data: { labels: rollingSeries.labels, datasets: [{ label: config.label, data: rollingSeries.values, borderColor: config.color, backgroundColor: `${config.color}18`, borderWidth: 2, fill: true, pointRadius: 0, pointHitRadius: 8, tension: 0.28, spanGaps: false }] },
-          options: { animation: false, responsive: true, maintainAspectRatio: false, interaction: { intersect: false, mode: 'index' }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (context) => formatValue(config.key, context.parsed.y) } } }, scales: { x: { grid: { display: true, color: 'rgba(113, 129, 144, 0.12)', lineWidth: 1 }, ticks: { maxTicksLimit: 6, color: '#718190' } }, y: { grid: { color: '#e9eef2' }, ticks: { maxTicksLimit: 5, color: '#718190', callback: (value) => formatNumber(config.key, value) } } } },
+          options: { animation: false, responsive: true, maintainAspectRatio: false, interaction: { intersect: false, mode: 'index' }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (context) => formatValue(config.key, context.parsed.y) } } }, scales: { x: { grid: { display: true, color: 'rgba(113, 129, 144, 0.12)', lineWidth: 1 }, ticks: { autoSkip: true, includeBounds: true, maxTicksLimit: 6, color: '#718190', callback(value, index, ticks) { return index === 0 && ticks.length > 1 ? '' : this.getLabelForValue(value); } } }, y: { grid: { color: '#e9eef2' }, ticks: { maxTicksLimit: 5, color: '#718190', callback: (value) => formatNumber(config.key, value) } } } },
         });
         this.series.set(config.key, rollingSeries);
         this.charts.set(config.key, chart);
