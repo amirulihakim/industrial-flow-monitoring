@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
-const { DashboardController } = require('../public/js/app');
+const { DashboardController, formatLocalTimestamp } = require('../public/js/app');
 
 class FakeElement {
   constructor(value = '') { this.value = value; this.textContent = ''; this.disabled = false; this.dataset = {}; this.listeners = new Map(); }
@@ -10,7 +10,7 @@ class FakeElement {
 }
 
 function createElements() {
-  const elements = Object.fromEntries(['statusPanel', 'pumpStatus', 'connectionState', 'connectionMessage', 'statusTimestamp', 'positiveTotal', 'negativeTotal', 'heatingTotal', 'coolingTotal', 'sourceBannerTitle', 'sourceBannerText'].map((key) => [key, new FakeElement()]));
+  const elements = Object.fromEntries(['statusPanel', 'pumpStatus', 'connectionState', 'connectionMessage', 'statusDevice', 'statusTimestamp', 'positiveTotal', 'negativeTotal', 'heatingTotal', 'coolingTotal'].map((key) => [key, new FakeElement()]));
   elements.deviceSelect = new FakeElement('PCWP');
   elements.deviceButtons = ['PCWP', 'SCWP1', 'SCWP2'].map((device) => { const button = new FakeElement(); button.dataset.device = device; return button; });
   elements.currentValues = Object.fromEntries(['flow_rate', 'flow_velocity', 'flow_percentage', 'instant_heat', 'temperature_in', 'temperature_out'].map((key) => [key, new FakeElement()]));
@@ -57,6 +57,7 @@ test('device switching immediately renders the already cached snapshot', () => {
   assert.equal(h.charts.replacements.length, 1);
   assert.equal(h.charts.replacements[0][0].device, 'SCWP1');
   assert.equal(h.realtime.selected.at(-1), 'SCWP1');
+  assert.equal(h.elements.statusDevice.textContent, 'SCWP1');
 });
 
 test('realtime state updates without latest-state polling', () => {
@@ -86,4 +87,13 @@ test('old-device realtime events cannot overwrite the newly selected device', ()
   const h = createHarness(); h.controller.changeDevice('SCWP2'); h.controller.handleTelemetry(createState('PCWP'));
   assert.equal(h.controller.selectedDevice, 'SCWP2'); assert.equal(h.charts.samples.length, 0);
   h.controller.handleTelemetry(createState('SCWP2')); assert.equal(h.charts.samples.length, 1);
+});
+
+test('last update includes local date, time, and runtime UTC offset', () => {
+  const date = new Date('2026-09-01T16:08:42.000Z');
+  const offsetMinutes = -date.getTimezoneOffset();
+  const sign = offsetMinutes >= 0 ? '+' : '-';
+  const expectedOffset = `${sign}${String(Math.floor(Math.abs(offsetMinutes) / 60)).padStart(2, '0')}:${String(Math.abs(offsetMinutes) % 60).padStart(2, '0')}`;
+  assert.match(formatLocalTimestamp(date), /^01 Sep 2026, \d{2}:08:42 UTC[+-]\d{2}:\d{2}$/);
+  assert.ok(formatLocalTimestamp(date).endsWith(`UTC${expectedOffset}`));
 });
