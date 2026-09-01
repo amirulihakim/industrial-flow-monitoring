@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
-const { DashboardCharts, LIVE_SERIES, RollingSeries } = require('../public/js/charts');
+const { DashboardCharts, LIVE_SERIES, RollingSeries, shouldShowTimestampTick } = require('../public/js/charts');
 
 test('live chart definitions use exactly the six canonical measurement keys', () => {
   assert.deepEqual(LIVE_SERIES.map(({ key }) => key), [
@@ -50,9 +50,17 @@ test('buffer replacement performs one non-animated update per chart', () => {
   assert.equal(instances[0].config.options.scales.y.ticks.callback(27.037), '27.04');
   const xTicks = instances[0].config.options.scales.x.ticks;
   const tickContext = { getLabelForValue: (value) => `time-${value}` };
-  assert.equal(xTicks.includeBounds, true);
+  assert.equal(xTicks.autoSkip, false);
   assert.equal(xTicks.callback.call(tickContext, 0, 0, [{}, {}]), '');
   assert.equal(xTicks.callback.call(tickContext, 59, 5, [{}, {}, {}, {}, {}, {}]), 'time-59');
+  assert.equal(instances[0].config.options.scales.y.grace, '12%');
+});
+
+test('timestamp thinning always preserves the newest label without removing samples', () => {
+  const visible = Array.from({ length: 60 }, (_, index) => shouldShowTimestampTick(index, 60));
+  assert.equal(visible.at(-1), true);
+  assert.equal(visible[0], false);
+  assert.ok(visible.filter(Boolean).length <= 6);
 });
 
 test('chart-facing values are quantized without mutating source telemetry', () => {

@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
-const { DashboardController, formatLocalTimestamp } = require('../public/js/app');
+const { DashboardController, formatLocalTimestamp, formatUtcOffset } = require('../public/js/app');
 
 class FakeElement {
   constructor(value = '') { this.value = value; this.textContent = ''; this.disabled = false; this.dataset = {}; this.listeners = new Map(); }
@@ -10,7 +10,7 @@ class FakeElement {
 }
 
 function createElements() {
-  const elements = Object.fromEntries(['statusPanel', 'pumpStatus', 'connectionState', 'connectionMessage', 'statusDevice', 'statusTimestamp', 'positiveTotal', 'negativeTotal', 'heatingTotal', 'coolingTotal'].map((key) => [key, new FakeElement()]));
+  const elements = Object.fromEntries(['statusPanel', 'pumpStatus', 'connectionState', 'connectionMessage', 'statusDevice', 'statusTimestamp', 'statusTimestampLabel', 'positiveTotal', 'negativeTotal', 'heatingTotal', 'coolingTotal'].map((key) => [key, new FakeElement()]));
   elements.deviceSelect = new FakeElement('PCWP');
   elements.deviceButtons = ['PCWP', 'SCWP1', 'SCWP2'].map((device) => { const button = new FakeElement(); button.dataset.device = device; return button; });
   elements.currentValues = Object.fromEntries(['flow_rate', 'flow_velocity', 'flow_percentage', 'instant_heat', 'temperature_in', 'temperature_out'].map((key) => [key, new FakeElement()]));
@@ -93,7 +93,9 @@ test('last update includes local date, time, and runtime UTC offset', () => {
   const date = new Date('2026-09-01T16:08:42.000Z');
   const offsetMinutes = -date.getTimezoneOffset();
   const sign = offsetMinutes >= 0 ? '+' : '-';
-  const expectedOffset = `${sign}${String(Math.floor(Math.abs(offsetMinutes) / 60)).padStart(2, '0')}:${String(Math.abs(offsetMinutes) % 60).padStart(2, '0')}`;
-  assert.match(formatLocalTimestamp(date), /^01 Sep 2026, \d{2}:08:42 UTC[+-]\d{2}:\d{2}$/);
-  assert.ok(formatLocalTimestamp(date).endsWith(`UTC${expectedOffset}`));
+  const hours = Math.floor(Math.abs(offsetMinutes) / 60);
+  const minutes = Math.abs(offsetMinutes) % 60;
+  const expectedOffset = `UTC${sign}${hours}${minutes ? `:${String(minutes).padStart(2, '0')}` : ''}`;
+  assert.match(formatLocalTimestamp(date), /^1 Sep 2026, \d{2}:08:42$/);
+  assert.equal(formatUtcOffset(date), expectedOffset);
 });

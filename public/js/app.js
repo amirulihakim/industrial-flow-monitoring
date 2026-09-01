@@ -12,7 +12,7 @@
     : require('./format').formatTelemetryValue;
 
   function collectElements(documentObject) {
-    const ids = { deviceSelect: 'device-select', pumpStatus: 'pump-status', connectionState: 'connection-state', connectionMessage: 'connection-message', statusDevice: 'status-device', statusTimestamp: 'status-timestamp', positiveTotal: 'positive-total', negativeTotal: 'negative-total', heatingTotal: 'heating-total', coolingTotal: 'cooling-total' };
+    const ids = { deviceSelect: 'device-select', pumpStatus: 'pump-status', connectionState: 'connection-state', connectionMessage: 'connection-message', statusDevice: 'status-device', statusTimestampLabel: 'status-timestamp-label', statusTimestamp: 'status-timestamp', positiveTotal: 'positive-total', negativeTotal: 'negative-total', heatingTotal: 'heating-total', coolingTotal: 'cooling-total' };
     const elements = Object.fromEntries(Object.entries(ids).map(([key, id]) => [key, documentObject.getElementById(id)]));
     elements.statusPanel = documentObject.querySelector('.status-panel');
     elements.deviceButtons = [...documentObject.querySelectorAll('[data-device]')];
@@ -38,7 +38,10 @@
       this.unsubscribeTelemetry = null;
       this.unsubscribeBuffer = null;
       this.unsubscribeStatus = null;
-      this.boundDeviceClick = (event) => this.changeDevice(event.currentTarget.dataset.device);
+      this.boundDeviceClick = (event) => {
+        this.changeDevice(event.currentTarget.dataset.device);
+        event.currentTarget.closest?.('details')?.removeAttribute('open');
+      };
     }
 
     start() {
@@ -47,6 +50,7 @@
       this.charts.initialize();
       for (const button of this.elements.deviceButtons) button.addEventListener('click', this.boundDeviceClick);
       this.#setConnectionState('connecting', 'Connecting');
+      this.elements.statusTimestampLabel.textContent = `Last Update (${formatUtcOffset(new Date(this.now()))})`;
       this.unsubscribeTelemetry = this.realtime.onTelemetry((state) => this.handleTelemetry(state));
       this.unsubscribeBuffer = this.realtime.onBuffer((device, samples) => this.handleBuffer(device, samples));
       this.unsubscribeStatus = this.realtime.onStatus((status) => this.handleTransportStatus(status));
@@ -125,6 +129,7 @@
       const fault = state.quality === 'fault' || state.status === 'fault';
       this.elements.statusDevice.textContent = state.device;
       this.elements.statusTimestamp.textContent = Number.isFinite(timestampMs) ? formatLocalTimestamp(new Date(timestampMs)) : 'Invalid timestamp';
+      if (Number.isFinite(timestampMs)) this.elements.statusTimestampLabel.textContent = `Last Update (${formatUtcOffset(new Date(timestampMs))})`;
       if (fault) { this.#setConnectionState('disconnected', 'Offline'); this.#setPumpStatus('unknown', 'Unknown'); this.elements.connectionMessage.textContent = 'Telemetry is unavailable while the sensor is in a fault state.'; }
       else if (stale) { this.#setConnectionState('stale', 'Stale'); this.#setPumpStatus('unknown', 'Unknown'); this.elements.connectionMessage.textContent = 'The latest sample is older than the accepted live-data threshold.'; }
       else {
@@ -164,16 +169,20 @@
   function formatLocalTimestamp(date) {
     if (!(date instanceof Date) || Number.isNaN(date.getTime())) return 'Invalid timestamp';
     const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB', {
-      day: '2-digit', month: 'short', year: 'numeric',
+      day: 'numeric', month: 'short', year: 'numeric',
       hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
     }).formatToParts(date).filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]));
-    const dateTime = `${parts.day} ${parts.month.slice(0, 3)} ${parts.year}, ${parts.hour}:${parts.minute}:${parts.second}`;
+    return `${Number(parts.day)} ${parts.month.slice(0, 3)} ${parts.year}, ${parts.hour}:${parts.minute}:${parts.second}`;
+  }
+
+  function formatUtcOffset(date) {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) return 'UTC';
     const offsetMinutes = -date.getTimezoneOffset();
     const sign = offsetMinutes >= 0 ? '+' : '-';
     const absoluteMinutes = Math.abs(offsetMinutes);
-    const hours = String(Math.floor(absoluteMinutes / 60)).padStart(2, '0');
-    const minutes = String(absoluteMinutes % 60).padStart(2, '0');
-    return `${dateTime} UTC${sign}${hours}:${minutes}`;
+    const hours = Math.floor(absoluteMinutes / 60);
+    const minutes = absoluteMinutes % 60;
+    return `UTC${sign}${hours}${minutes ? `:${String(minutes).padStart(2, '0')}` : ''}`;
   }
 
   function bootstrap() {
@@ -185,5 +194,5 @@
   }
 
   if (typeof document !== 'undefined') document.addEventListener('DOMContentLoaded', bootstrap, { once: true });
-  return { DashboardController, STALE_AFTER_MS, STALE_CHECK_INTERVAL_MS, STOPPED_FLOW_THRESHOLD, collectElements, formatLocalTimestamp };
+  return { DashboardController, STALE_AFTER_MS, STALE_CHECK_INTERVAL_MS, STOPPED_FLOW_THRESHOLD, collectElements, formatLocalTimestamp, formatUtcOffset };
 }));
