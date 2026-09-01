@@ -28,6 +28,18 @@
     return index % interval === 0;
   }
 
+  function computeYAxisBounds(values, paddingRatio = 0.12) {
+    const numericValues = values.filter(Number.isFinite);
+    if (!numericValues.length) return null;
+    const minimum = Math.min(...numericValues);
+    const maximum = Math.max(...numericValues);
+    const range = maximum - minimum;
+    const margin = range > 0
+      ? range * paddingRatio
+      : Math.max(Math.abs(minimum) * 0.01, 0.001);
+    return { min: minimum - margin, max: maximum + margin };
+  }
+
   class RollingSeries {
     constructor(maximumPoints = 60) {
       this.maximumPoints = maximumPoints;
@@ -65,7 +77,7 @@
         const chart = new this.ChartConstructor(canvas, {
           type: 'line',
           data: { labels: rollingSeries.labels, datasets: [{ label: config.label, data: rollingSeries.values, borderColor: config.color, backgroundColor: `${config.color}18`, borderWidth: 2, fill: true, pointRadius: 0, pointHitRadius: 8, tension: 0.28, spanGaps: false }] },
-          options: { animation: false, responsive: true, maintainAspectRatio: false, interaction: { intersect: false, mode: 'index' }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (context) => formatValue(config.key, context.parsed.y) } } }, scales: { x: { grid: { display: true, color: 'rgba(113, 129, 144, 0.12)', lineWidth: 1 }, ticks: { autoSkip: false, color: '#718190', callback(value, index, ticks) { return shouldShowTimestampTick(index, ticks.length) ? this.getLabelForValue(value) : ''; } } }, y: { grace: '12%', grid: { color: '#e9eef2' }, ticks: { maxTicksLimit: 5, color: '#718190', callback: (value) => formatNumber(config.key, value) } } } },
+          options: { animation: false, responsive: true, maintainAspectRatio: false, interaction: { intersect: false, mode: 'index' }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (context) => formatValue(config.key, context.parsed.y) } } }, scales: { x: { grid: { display: true, color: 'rgba(113, 129, 144, 0.12)', lineWidth: 1 }, ticks: { autoSkip: false, color: '#718190', callback(value, index, ticks) { return shouldShowTimestampTick(index, ticks.length) ? this.getLabelForValue(value) : ''; } } }, y: { grid: { color: '#e9eef2' }, ticks: { maxTicksLimit: 5, color: '#718190', callback: (value) => formatNumber(config.key, value) } } } },
         });
         this.series.set(config.key, rollingSeries);
         this.charts.set(config.key, chart);
@@ -76,8 +88,11 @@
       const label = this.#formatTime(timestamp);
       for (const config of LIVE_SERIES) {
         const value = measurements?.[config.key];
-        this.series.get(config.key).append(label, quantizeValue(config.key, value));
-        this.charts.get(config.key).update('none');
+        const rollingSeries = this.series.get(config.key);
+        const chart = this.charts.get(config.key);
+        rollingSeries.append(label, quantizeValue(config.key, value));
+        this.#applyYAxisBounds(chart, rollingSeries.values);
+        chart.update('none');
       }
     }
 
@@ -89,15 +104,31 @@
           const value = state.measurements?.[config.key];
           rollingSeries.append(this.#formatTime(state.timestamp), quantizeValue(config.key, value));
         }
-        this.charts.get(config.key).update('none');
+        const chart = this.charts.get(config.key);
+        this.#applyYAxisBounds(chart, rollingSeries.values);
+        chart.update('none');
       }
     }
 
     reset() {
       for (const config of LIVE_SERIES) {
         this.series.get(config.key).reset();
-        this.charts.get(config.key).update('none');
+        const chart = this.charts.get(config.key);
+        delete chart.options.scales.y.min;
+        delete chart.options.scales.y.max;
+        chart.update('none');
       }
+    }
+
+    #applyYAxisBounds(chart, values) {
+      const bounds = computeYAxisBounds(values);
+      if (!bounds) {
+        delete chart.options.scales.y.min;
+        delete chart.options.scales.y.max;
+        return;
+      }
+      chart.options.scales.y.min = bounds.min;
+      chart.options.scales.y.max = bounds.max;
     }
 
     #formatTime(timestamp) {
@@ -107,5 +138,5 @@
     }
   }
 
-  return { DashboardCharts, LIVE_SERIES, RollingSeries, shouldShowTimestampTick };
+  return { DashboardCharts, LIVE_SERIES, RollingSeries, computeYAxisBounds, shouldShowTimestampTick };
 }));

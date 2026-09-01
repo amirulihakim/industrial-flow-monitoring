@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
-const { DashboardController, formatLocalTimestamp, formatUtcOffset } = require('../public/js/app');
+const { DashboardController, formatLastUpdateHeading, formatLocalTimestamp, formatUtcOffset } = require('../public/js/app');
 
 class FakeElement {
   constructor(value = '') { this.value = value; this.textContent = ''; this.disabled = false; this.dataset = {}; this.listeners = new Map(); }
@@ -89,13 +89,11 @@ test('old-device realtime events cannot overwrite the newly selected device', ()
   h.controller.handleTelemetry(createState('SCWP2')); assert.equal(h.charts.samples.length, 1);
 });
 
-test('last update includes local date, time, and runtime UTC offset', () => {
-  const date = new Date('2026-09-01T16:08:42.000Z');
-  const offsetMinutes = -date.getTimezoneOffset();
-  const sign = offsetMinutes >= 0 ? '+' : '-';
-  const hours = Math.floor(Math.abs(offsetMinutes) / 60);
-  const minutes = Math.abs(offsetMinutes) % 60;
-  const expectedOffset = `UTC${sign}${hours}${minutes ? `:${String(minutes).padStart(2, '0')}` : ''}`;
-  assert.match(formatLocalTimestamp(date), /^1 Sep 2026, \d{2}:08:42$/);
-  assert.equal(formatUtcOffset(date), expectedOffset);
+test('last update separates exact local timestamp value from dynamic UTC heading', () => {
+  const date = new Date(2026, 8, 1, 23, 44, 20);
+  assert.equal(formatLocalTimestamp(date), '1 Sep 2026, 23:44:20');
+  assert.doesNotMatch(formatLocalTimestamp(date), /UTC/);
+  assert.equal(formatUtcOffset(date, -420), 'UTC+7');
+  assert.equal(formatUtcOffset(date, 330), 'UTC-5:30');
+  assert.equal(formatLastUpdateHeading(date, -420), 'Last Update (UTC+7)');
 });

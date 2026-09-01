@@ -13,8 +13,12 @@ test('GitHub Pages entry point uses resolvable relative assets and no backend sc
   assert.ok(references.length > 0);
   for (const reference of references) {
     assert.match(reference, /^\.\//, `${reference} must be relative to the Pages project directory`);
-    assert.ok(fs.existsSync(path.join(publicRoot, reference)), `${reference} must exist in public/`);
+    const assetPath = reference.split('?')[0];
+    assert.ok(fs.existsSync(path.join(publicRoot, assetPath)), `${reference} must exist in public/`);
   }
+  assert.match(html, /styles\.css\?v=\d/);
+  assert.match(html, /js\/charts\.js\?v=\d/);
+  assert.match(html, /js\/app\.js\?v=\d/);
   assert.doesNotMatch(html, /js\/api\.js|js\/history\.js|localhost|127\.0\.0\.1/);
 });
 

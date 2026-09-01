@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
-const { DashboardCharts, LIVE_SERIES, RollingSeries, shouldShowTimestampTick } = require('../public/js/charts');
+const { DashboardCharts, LIVE_SERIES, RollingSeries, computeYAxisBounds, shouldShowTimestampTick } = require('../public/js/charts');
 
 test('live chart definitions use exactly the six canonical measurement keys', () => {
   assert.deepEqual(LIVE_SERIES.map(({ key }) => key), [
@@ -33,7 +33,7 @@ test('rolling series stays bounded and retains null as a chart gap', () => {
 test('buffer replacement performs one non-animated update per chart', () => {
   const instances = [];
   class FakeChart {
-    constructor(_canvas, config) { this.config = config; this.updates = []; instances.push(this); }
+    constructor(_canvas, config) { this.config = config; this.options = config.options; this.updates = []; instances.push(this); }
     update(mode) { this.updates.push(mode); }
   }
   const charts = new DashboardCharts({ ChartConstructor: FakeChart, documentObject: { getElementById() { return {}; } } });
@@ -53,7 +53,20 @@ test('buffer replacement performs one non-animated update per chart', () => {
   assert.equal(xTicks.autoSkip, false);
   assert.equal(xTicks.callback.call(tickContext, 0, 0, [{}, {}]), '');
   assert.equal(xTicks.callback.call(tickContext, 59, 5, [{}, {}, {}, {}, {}, {}]), 'time-59');
-  assert.equal(instances[0].config.options.scales.y.grace, '12%');
+  assert.equal(instances[0].config.options.scales.y.grace, undefined);
+  assert.equal(instances[0].config.options.scales.y.min, -6.08);
+  assert.equal(instances[0].config.options.scales.y.max, 67.08);
+  assert.ok(instances.every((chart) => chart.options.scales.y.min < 1 && chart.options.scales.y.max > 60));
+});
+
+test('computed y-axis bounds pad ranged and flat visible data', () => {
+  const ranged = computeYAxisBounds([14.8, 14.9, 15]);
+  assert.ok(Math.abs(ranged.min - 14.776) < Number.EPSILON * 16);
+  assert.ok(Math.abs(ranged.max - 15.024) < Number.EPSILON * 16);
+  const flat = computeYAxisBounds([15, 15]);
+  assert.ok(flat.min < 15);
+  assert.ok(flat.max > 15);
+  assert.equal(computeYAxisBounds([null, Number.NaN, undefined]), null);
 });
 
 test('timestamp thinning always preserves the newest label without removing samples', () => {
@@ -64,7 +77,7 @@ test('timestamp thinning always preserves the newest label without removing samp
 });
 
 test('chart-facing values are quantized without mutating source telemetry', () => {
-  class FakeChart { update() {} }
+  class FakeChart { constructor(_canvas, config) { this.options = config.options; } update() {} }
   const charts = new DashboardCharts({ ChartConstructor: FakeChart, documentObject: { getElementById() { return {}; } } });
   charts.initialize();
   const measurements = { flow_rate: 27.037, flow_velocity: 0.9564, flow_percentage: 72.736, instant_heat: 0.40667, temperature_in: 11.034, temperature_out: 12.06 };

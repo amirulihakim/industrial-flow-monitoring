@@ -50,7 +50,7 @@
       this.charts.initialize();
       for (const button of this.elements.deviceButtons) button.addEventListener('click', this.boundDeviceClick);
       this.#setConnectionState('connecting', 'Connecting');
-      this.elements.statusTimestampLabel.textContent = `Last Update (${formatUtcOffset(new Date(this.now()))})`;
+      this.elements.statusTimestampLabel.textContent = formatLastUpdateHeading(new Date(this.now()));
       this.unsubscribeTelemetry = this.realtime.onTelemetry((state) => this.handleTelemetry(state));
       this.unsubscribeBuffer = this.realtime.onBuffer((device, samples) => this.handleBuffer(device, samples));
       this.unsubscribeStatus = this.realtime.onStatus((status) => this.handleTransportStatus(status));
@@ -129,7 +129,7 @@
       const fault = state.quality === 'fault' || state.status === 'fault';
       this.elements.statusDevice.textContent = state.device;
       this.elements.statusTimestamp.textContent = Number.isFinite(timestampMs) ? formatLocalTimestamp(new Date(timestampMs)) : 'Invalid timestamp';
-      if (Number.isFinite(timestampMs)) this.elements.statusTimestampLabel.textContent = `Last Update (${formatUtcOffset(new Date(timestampMs))})`;
+      if (Number.isFinite(timestampMs)) this.elements.statusTimestampLabel.textContent = formatLastUpdateHeading(new Date(timestampMs));
       if (fault) { this.#setConnectionState('disconnected', 'Offline'); this.#setPumpStatus('unknown', 'Unknown'); this.elements.connectionMessage.textContent = 'Telemetry is unavailable while the sensor is in a fault state.'; }
       else if (stale) { this.#setConnectionState('stale', 'Stale'); this.#setPumpStatus('unknown', 'Unknown'); this.elements.connectionMessage.textContent = 'The latest sample is older than the accepted live-data threshold.'; }
       else {
@@ -175,14 +175,18 @@
     return `${Number(parts.day)} ${parts.month.slice(0, 3)} ${parts.year}, ${parts.hour}:${parts.minute}:${parts.second}`;
   }
 
-  function formatUtcOffset(date) {
+  function formatUtcOffset(date, timezoneOffsetMinutes = date?.getTimezoneOffset()) {
     if (!(date instanceof Date) || Number.isNaN(date.getTime())) return 'UTC';
-    const offsetMinutes = -date.getTimezoneOffset();
+    const offsetMinutes = -timezoneOffsetMinutes;
     const sign = offsetMinutes >= 0 ? '+' : '-';
     const absoluteMinutes = Math.abs(offsetMinutes);
     const hours = Math.floor(absoluteMinutes / 60);
     const minutes = absoluteMinutes % 60;
     return `UTC${sign}${hours}${minutes ? `:${String(minutes).padStart(2, '0')}` : ''}`;
+  }
+
+  function formatLastUpdateHeading(date, timezoneOffsetMinutes) {
+    return `Last Update (${formatUtcOffset(date, timezoneOffsetMinutes)})`;
   }
 
   function bootstrap() {
@@ -194,5 +198,5 @@
   }
 
   if (typeof document !== 'undefined') document.addEventListener('DOMContentLoaded', bootstrap, { once: true });
-  return { DashboardController, STALE_AFTER_MS, STALE_CHECK_INTERVAL_MS, STOPPED_FLOW_THRESHOLD, collectElements, formatLocalTimestamp, formatUtcOffset };
+  return { DashboardController, STALE_AFTER_MS, STALE_CHECK_INTERVAL_MS, STOPPED_FLOW_THRESHOLD, collectElements, formatLastUpdateHeading, formatLocalTimestamp, formatUtcOffset };
 }));
