@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
-const { DashboardController, formatLastUpdateHeading, formatLocalTimestamp, formatUtcOffset } = require('../public/js/app');
+const { DashboardController, formatLastUpdateHeading, formatLocalTimestamp, formatUtcOffset, formatUptime, initializeDeviceUptimes } = require('../public/js/app');
 
 class FakeElement {
   constructor(value = '') { this.value = value; this.textContent = ''; this.disabled = false; this.dataset = {}; this.listeners = new Map(); }
@@ -10,7 +10,7 @@ class FakeElement {
 }
 
 function createElements() {
-  const elements = Object.fromEntries(['statusPanel', 'pumpStatus', 'connectionState', 'connectionMessage', 'statusDevice', 'statusTimestamp', 'statusTimestampLabel', 'positiveTotal', 'negativeTotal', 'heatingTotal', 'coolingTotal'].map((key) => [key, new FakeElement()]));
+  const elements = Object.fromEntries(['statusPanel', 'pumpStatus', 'connectionState', 'connectionMessage', 'statusDevice', 'totalUptime', 'statusTimestamp', 'statusTimestampLabel', 'positiveTotal', 'negativeTotal', 'heatingTotal', 'coolingTotal'].map((key) => [key, new FakeElement()]));
   elements.deviceSelect = new FakeElement('PCWP');
   elements.deviceButtons = ['PCWP', 'SCWP1', 'SCWP2'].map((device) => { const button = new FakeElement(); button.dataset.device = device; return button; });
   elements.currentValues = Object.fromEntries(['flow_rate', 'flow_velocity', 'flow_percentage', 'instant_heat', 'temperature_in', 'temperature_out'].map((key) => [key, new FakeElement()]));
@@ -21,13 +21,13 @@ function createState(device = 'PCWP', overrides = {}) {
   return { device, source: 'simulation', timestamp: '2026-01-01T00:00:01.000Z', scenario: 'normal', status: 'online', quality: 'good', measurements: { flow_rate: 80, flow_velocity: 1.2, flow_percentage: 70, instant_heat: 1.1, temperature_in: 28, temperature_out: 32 }, totals: { positive_total: 100, negative_total: 4, heating_total: 20, cooling_total: 2 }, ...overrides };
 }
 
-function createHarness() {
+function createHarness(options = {}) {
   const elements = createElements(); const calls = { scenarios: [] };
   const charts = { initializeCount: 0, resetCount: 0, samples: [], replacements: [], initialize() { this.initializeCount += 1; }, reset() { this.resetCount += 1; }, replace(samples) { this.replacements.push(samples); }, append(timestamp, measurements) { this.samples.push({ timestamp, measurements }); } };
   const realtime = { starts: 0, stops: 0, telemetry: new Set(), buffers: new Set(), statuses: new Set(), latest: new Map(), selected: [], start() { this.starts += 1; }, stop() { this.stops += 1; }, selectDevice(device) { this.selected.push(device); }, onTelemetry(listener) { this.telemetry.add(listener); return () => this.telemetry.delete(listener); }, onBuffer(listener) { this.buffers.add(listener); return () => this.buffers.delete(listener); }, onStatus(listener) { this.statuses.add(listener); return () => this.statuses.delete(listener); }, getSamples(device) { return this.latest.has(device) ? [this.latest.get(device)] : []; }, emit(state) { this.latest.set(state.device, state); for (const listener of this.telemetry) listener(state); }, emitBuffer(device, samples) { for (const listener of this.buffers) listener(device, samples); }, emitStatus(status) { for (const listener of this.statuses) listener(status); } };
   const api = { async getLatest(device) { return createState(device); }, async setScenario(device, scenario) { calls.scenarios.push({ device, scenario }); return createState(device, { scenario }); } };
   const timers = []; const cleared = []; let nowMs = Date.parse('2026-01-01T00:00:02.000Z');
-  const controller = new DashboardController({ api, realtime, charts, elements, now: () => nowMs, setIntervalFunction(callback, delay) { timers.push({ callback, delay }); return 1; }, clearIntervalFunction(id) { cleared.push(id); } });
+  const controller = new DashboardController({ api, realtime, charts, elements, documentObject: options.documentObject || null, sessionStorageObject: options.storage || null, random: options.random || Math.random, now: () => nowMs, setIntervalFunction(callback, delay) { timers.push({ callback, delay }); return 1; }, clearIntervalFunction(id) { cleared.push(id); } });
   return { calls, charts, cleared, controller, elements, realtime, timers, advanceTime(milliseconds) { nowMs += milliseconds; } };
 }
 
@@ -95,5 +95,45 @@ test('last update separates exact local timestamp value from dynamic UTC heading
   assert.doesNotMatch(formatLocalTimestamp(date), /UTC/);
   assert.equal(formatUtcOffset(date, -420), 'UTC+7');
   assert.equal(formatUtcOffset(date, 330), 'UTC-5:30');
-  assert.equal(formatLastUpdateHeading(date, -420), 'Last Update (UTC+7)');
+  assert.equal(formatLastUpdateHeading(date, -420), 'Last Data Update (UTC+7)');
+});
+
+test('device uptimes are distinct, session-persistent, and advance only while running', () => {
+  const values = new Map();
+  const storage = { getItem(key) { return values.get(key) || null; }, setItem(key, value) { values.set(key, value); } };
+  const randomValues = [0, .25, .5];
+  const h = createHarness({ storage, random: () => randomValues.shift() });
+  const baselines = { ...h.controller.deviceUptimes };
+  assert.equal(new Set(Object.values(baselines)).size, 3);
+  assert.ok(Object.values(baselines).every((value) => value > 0 && value <= 43200));
+  assert.equal(formatUptime(11262), '3:07:42');
+
+  h.controller.start();
+  h.realtime.emit(createState('PCWP'));
+  h.timers[0].callback();
+  assert.equal(h.controller.deviceUptimes.PCWP, baselines.PCWP + 1);
+  h.realtime.emit(createState('PCWP', { measurements: { ...createState().measurements, flow_rate: 0 } }));
+  h.timers[0].callback();
+  assert.equal(h.controller.deviceUptimes.PCWP, baselines.PCWP + 1);
+  h.controller.changeDevice('SCWP1');
+  h.controller.changeDevice('PCWP');
+  assert.equal(h.elements.totalUptime.textContent, formatUptime(baselines.PCWP + 1));
+  assert.deepEqual(initializeDeviceUptimes(storage, () => .9), h.controller.deviceUptimes);
+});
+
+test('status dropdowns are mutually exclusive and close on outside click', () => {
+  const documentObject = new FakeElement();
+  const h = createHarness({ documentObject });
+  const plant = new FakeElement();
+  const device = new FakeElement();
+  h.elements.statusDropdowns = [plant, device];
+  h.elements.dropdownMenuButtons = [];
+  h.controller.start();
+
+  plant.open = true;
+  device.open = true;
+  plant.listeners.get('toggle')[0]({ currentTarget: plant });
+  assert.equal(device.open, false);
+  documentObject.listeners.get('click')[0]({ target: { closest: () => null } });
+  assert.equal(plant.open, false);
 });

@@ -55,7 +55,8 @@ test('GET / serves the unified reconstruction dashboard', async () => {
   assert.match(body, /Centralized Data Acquisition and Monitoring System/i);
   const statusPanel = body.match(/<section class="status-panel"[\s\S]*?<\/section>/)?.[0] || '';
   const statusOrder = [...statusPanel.matchAll(/class="status-kicker"[^>]*>([^<]+)/g)].map((match) => match[1]);
-  assert.deepEqual(statusOrder, ['Connection Status', 'Device Status', 'Plant', 'Device', 'Last Update']);
+  assert.deepEqual(statusOrder, ['Connection Status', 'Device Status', 'Plant', 'Device', 'Total Uptime', 'Last Data Update']);
+  assert.match(body, /href="https:\/\/amirulihakim\.github\.io\/projects\/pt-timah-industrial-monitoring\.html"/);
   assert.equal((body.match(/class="section-title"/g) || []).length, 2);
   assert.equal((body.match(/class="dashboard-section"/g) || []).length, 2);
 });

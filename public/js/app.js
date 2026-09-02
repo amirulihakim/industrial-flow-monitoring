@@ -6,31 +6,60 @@
   const STALE_CHECK_INTERVAL_MS = 1000;
   const STALE_AFTER_MS = 5000;
   const STOPPED_FLOW_THRESHOLD = 0.01;
+  const UPTIME_STORAGE_KEY = 'timah-device-uptimes-v1';
+  const DEVICES = Object.freeze(['PCWP', 'SCWP1', 'SCWP2']);
   const VALUE_ELEMENT_IDS = Object.freeze({ flow_rate: 'current-flow-rate', flow_velocity: 'current-flow-velocity', flow_percentage: 'current-flow-percentage', instant_heat: 'current-instant-heat', temperature_in: 'current-temperature-in', temperature_out: 'current-temperature-out' });
   const formatValue = typeof formatTelemetryValue !== 'undefined'
     ? formatTelemetryValue
     : require('./format').formatTelemetryValue;
 
   function collectElements(documentObject) {
-    const ids = { deviceSelect: 'device-select', pumpStatus: 'pump-status', connectionState: 'connection-state', connectionMessage: 'connection-message', statusDevice: 'status-device', statusTimestampLabel: 'status-timestamp-label', statusTimestamp: 'status-timestamp', positiveTotal: 'positive-total', negativeTotal: 'negative-total', heatingTotal: 'heating-total', coolingTotal: 'cooling-total' };
+    const ids = { deviceSelect: 'device-select', pumpStatus: 'pump-status', connectionState: 'connection-state', connectionMessage: 'connection-message', statusDevice: 'status-device', totalUptime: 'total-uptime', statusTimestampLabel: 'status-timestamp-label', statusTimestamp: 'status-timestamp', positiveTotal: 'positive-total', negativeTotal: 'negative-total', heatingTotal: 'heating-total', coolingTotal: 'cooling-total' };
     const elements = Object.fromEntries(Object.entries(ids).map(([key, id]) => [key, documentObject.getElementById(id)]));
     elements.statusPanel = documentObject.querySelector('.status-panel');
     elements.deviceButtons = [...documentObject.querySelectorAll('[data-device]')];
+    elements.statusDropdowns = [...documentObject.querySelectorAll('.status-dropdown')];
+    elements.dropdownMenuButtons = [...documentObject.querySelectorAll('.status-menu button')];
     elements.currentValues = Object.fromEntries(Object.entries(VALUE_ELEMENT_IDS).map(([key, id]) => [key, documentObject.getElementById(id)]));
     return elements;
   }
 
+  function formatUptime(totalSeconds) {
+    const seconds = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+    const hours = Math.floor(seconds / 3600);
+    return `${hours}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+  }
+
+  function initializeDeviceUptimes(storage, random = Math.random) {
+    let stored = {};
+    try { stored = JSON.parse(storage?.getItem(UPTIME_STORAGE_KEY) || '{}') || {}; } catch { stored = {}; }
+    const uptimes = {};
+    const used = new Set();
+    for (const device of DEVICES) {
+      let value = Number.isInteger(stored[device]) && stored[device] > 0 ? stored[device] : Math.floor(random() * 43200) + 1;
+      while (used.has(value)) value = value === 43200 ? 1 : value + 1;
+      uptimes[device] = value;
+      used.add(value);
+    }
+    try { storage?.setItem(UPTIME_STORAGE_KEY, JSON.stringify(uptimes)); } catch { /* Session storage is optional. */ }
+    return uptimes;
+  }
+
   class DashboardController {
-    constructor({ realtime, charts, elements, now = () => Date.now(), setIntervalFunction = globalThis.setInterval.bind(globalThis), clearIntervalFunction = globalThis.clearInterval.bind(globalThis), staleCheckIntervalMs = STALE_CHECK_INTERVAL_MS, staleAfterMs = STALE_AFTER_MS }) {
+    constructor({ realtime, charts, elements, documentObject = null, sessionStorageObject = typeof sessionStorage !== 'undefined' ? sessionStorage : null, random = Math.random, now = () => Date.now(), setIntervalFunction = globalThis.setInterval.bind(globalThis), clearIntervalFunction = globalThis.clearInterval.bind(globalThis), staleCheckIntervalMs = STALE_CHECK_INTERVAL_MS, staleAfterMs = STALE_AFTER_MS }) {
       this.realtime = realtime;
       this.charts = charts;
       this.elements = elements;
+      this.document = documentObject;
+      this.sessionStorage = sessionStorageObject;
       this.now = now;
       this.setIntervalFunction = setIntervalFunction;
       this.clearIntervalFunction = clearIntervalFunction;
       this.staleCheckIntervalMs = staleCheckIntervalMs;
       this.staleAfterMs = staleAfterMs;
       this.selectedDevice = elements.deviceSelect.value;
+      this.deviceUptimes = initializeDeviceUptimes(this.sessionStorage, random);
+      this.deviceRunning = new Map(DEVICES.map((device) => [device, false]));
       this.timer = null;
       this.started = false;
       this.lastState = null;
@@ -42,6 +71,17 @@
         this.changeDevice(event.currentTarget.dataset.device);
         event.currentTarget.closest?.('details')?.removeAttribute('open');
       };
+      this.boundDropdownToggle = (event) => {
+        if (!event.currentTarget.open) return;
+        for (const dropdown of this.elements.statusDropdowns || []) if (dropdown !== event.currentTarget) dropdown.open = false;
+      };
+      this.boundOutsideClick = (event) => {
+        if (event.target.closest?.('.status-dropdown')) return;
+        for (const dropdown of this.elements.statusDropdowns || []) dropdown.open = false;
+      };
+      this.boundDropdownOptionClick = (event) => {
+        if (!event.currentTarget.disabled) event.currentTarget.closest?.('details')?.removeAttribute('open');
+      };
     }
 
     start() {
@@ -49,14 +89,18 @@
       this.started = true;
       this.charts.initialize();
       for (const button of this.elements.deviceButtons) button.addEventListener('click', this.boundDeviceClick);
+      for (const dropdown of this.elements.statusDropdowns || []) dropdown.addEventListener('toggle', this.boundDropdownToggle);
+      for (const button of this.elements.dropdownMenuButtons || []) button.addEventListener('click', this.boundDropdownOptionClick);
+      this.document?.addEventListener('click', this.boundOutsideClick);
       this.#setConnectionState('connecting', 'Connecting');
       this.elements.statusTimestampLabel.textContent = formatLastUpdateHeading(new Date(this.now()));
+      this.#renderUptime();
       this.unsubscribeTelemetry = this.realtime.onTelemetry((state) => this.handleTelemetry(state));
       this.unsubscribeBuffer = this.realtime.onBuffer((device, samples) => this.handleBuffer(device, samples));
       this.unsubscribeStatus = this.realtime.onStatus((status) => this.handleTransportStatus(status));
       this.realtime.selectDevice(this.selectedDevice);
       this.realtime.start();
-      this.timer = this.setIntervalFunction(() => this.checkStale(), this.staleCheckIntervalMs);
+      this.timer = this.setIntervalFunction(() => { this.#tickUptimes(); this.checkStale(); }, this.staleCheckIntervalMs);
     }
 
     stop() {
@@ -71,6 +115,9 @@
       this.unsubscribeStatus = null;
       this.realtime.stop();
       for (const button of this.elements.deviceButtons) button.removeEventListener('click', this.boundDeviceClick);
+      for (const dropdown of this.elements.statusDropdowns || []) dropdown.removeEventListener('toggle', this.boundDropdownToggle);
+      for (const button of this.elements.dropdownMenuButtons || []) button.removeEventListener('click', this.boundDropdownOptionClick);
+      this.document?.removeEventListener('click', this.boundOutsideClick);
     }
 
     changeDevice(device) {
@@ -78,6 +125,7 @@
       this.elements.deviceSelect.value = device;
       for (const button of this.elements.deviceButtons) button.setAttribute('aria-pressed', String(button.dataset.device === device));
       this.elements.statusDevice.textContent = device;
+      this.#renderUptime();
       this.#clearDisplayedValues();
       this.#setConnectionState('connecting', 'Connecting');
       this.#setPumpStatus('unknown', 'Unknown');
@@ -90,6 +138,7 @@
     }
 
     handleTelemetry(state) {
+      this.deviceRunning.set(state.device, this.#isRunning(state));
       if (state.device !== this.selectedDevice) return;
       this.lastState = state;
       this.lastTelemetryReceivedAt = this.now();
@@ -162,8 +211,15 @@
     }
 
     #clearDisplayedValues() { this.#renderTotals(null); this.#renderCurrentMeasurements(null); }
+    #isRunning(state) { return state.quality !== 'fault' && state.status !== 'fault' && Number.isFinite(state.measurements?.flow_rate) && Math.abs(state.measurements.flow_rate) > STOPPED_FLOW_THRESHOLD; }
+    #tickUptimes() {
+      for (const device of DEVICES) if (this.deviceRunning.get(device)) this.deviceUptimes[device] += 1;
+      try { this.sessionStorage?.setItem(UPTIME_STORAGE_KEY, JSON.stringify(this.deviceUptimes)); } catch { /* Session storage is optional. */ }
+      this.#renderUptime();
+    }
+    #renderUptime() { this.elements.totalUptime.textContent = formatUptime(this.deviceUptimes[this.selectedDevice]); }
     #setConnectionState(state, label) { this.elements.statusPanel.dataset.state = state; this.elements.connectionState.textContent = label; }
-    #setPumpStatus(state, label) { this.elements.statusPanel.dataset.pump = state; this.elements.pumpStatus.textContent = label; }
+    #setPumpStatus(state, label) { this.deviceRunning.set(this.selectedDevice, state === 'running'); this.elements.statusPanel.dataset.pump = state; this.elements.pumpStatus.textContent = label; }
   }
 
   function formatLocalTimestamp(date) {
@@ -186,17 +242,17 @@
   }
 
   function formatLastUpdateHeading(date, timezoneOffsetMinutes) {
-    return `Last Update (${formatUtcOffset(date, timezoneOffsetMinutes)})`;
+    return `Last Data Update (${formatUtcOffset(date, timezoneOffsetMinutes)})`;
   }
 
   function bootstrap() {
     const elements = collectElements(document);
     const charts = new DashboardCharts({ ChartConstructor: Chart, documentObject: document, maximumPoints: 60 });
-    const controller = new DashboardController({ realtime: new RealtimeClient(), charts, elements });
+    const controller = new DashboardController({ realtime: new RealtimeClient(), charts, elements, documentObject: document });
     controller.start();
     window.dashboardController = controller;
   }
 
   if (typeof document !== 'undefined') document.addEventListener('DOMContentLoaded', bootstrap, { once: true });
-  return { DashboardController, STALE_AFTER_MS, STALE_CHECK_INTERVAL_MS, STOPPED_FLOW_THRESHOLD, collectElements, formatLastUpdateHeading, formatLocalTimestamp, formatUtcOffset };
+  return { DashboardController, STALE_AFTER_MS, STALE_CHECK_INTERVAL_MS, STOPPED_FLOW_THRESHOLD, collectElements, formatLastUpdateHeading, formatLocalTimestamp, formatUtcOffset, formatUptime, initializeDeviceUptimes };
 }));

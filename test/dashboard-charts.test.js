@@ -49,6 +49,8 @@ test('buffer replacement performs one non-animated update per chart', () => {
   assert.equal(instances[0].config.options.plugins.tooltip.callbacks.label({ parsed: { y: 27.037 } }), '27.04 m³/h');
   assert.equal(instances[0].config.options.plugins.tooltip.callbacks.title([{ label: '12:52:34 AM' }]), '12:52:34 AM');
   assert.equal(instances[0].config.options.scales.y.ticks.callback(27.037), '27.04');
+  assert.match(instances[0].config.options.scales.x.ticks.font.family, /Inter/);
+  assert.match(instances[0].config.options.scales.y.ticks.font.family, /Segoe UI/);
   const xTicks = instances[0].config.options.scales.x.ticks;
   const tickContext = { getLabelForValue: (value) => `time-${value}` };
   assert.equal(xTicks.autoSkip, false);

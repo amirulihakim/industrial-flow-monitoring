@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Portfolio-safe industrial flowmeter monitoring reconstruction.">
   <title>Real-Time Dashboard Simulation</title>
-  <link rel="stylesheet" href="./styles.css?v=20260902-3">
+  <link rel="stylesheet" href="./styles.css?v=20260903-1">
   <script defer src="./vendor/chart.js"></script>
   <script defer src="./vendor/mqtt.js"></script>
   <script defer src="./js/config.js"></script>
   <script defer src="./js/format.js"></script>
-  <script defer src="./js/charts.js?v=20260902-3"></script>
+  <script defer src="./js/charts.js?v=20260903-1"></script>
   <script defer src="./js/realtime.js"></script>
-  <script defer src="./js/app.js?v=20260902-1"></script>
+  <script defer src="./js/app.js?v=20260903-1"></script>
 </head>
 <body>
   <header class="topbar">
@@ -42,7 +42,8 @@
       <div class="status-item"><span class="status-kicker">Device Status</span><div class="status-value"><span class="pump-dot" aria-hidden="true"></span><strong id="pump-status">Unknown</strong></div></div>
       <div class="status-item"><span class="status-kicker">Plant</span><details class="status-dropdown"><summary>Utilities</summary><div class="status-menu"><button type="button" aria-current="true">Utilities</button><button type="button" disabled aria-disabled="true">WTP</button></div></details></div>
       <div class="status-item"><span class="status-kicker">Device</span><details class="status-dropdown"><summary id="status-device">PCWP</summary><div class="status-menu"><button type="button" data-device="PCWP" aria-pressed="true">PCWP</button><button type="button" data-device="SCWP1" aria-pressed="false">SCWP1</button><button type="button" data-device="SCWP2" aria-pressed="false">SCWP2</button></div></details><input id="device-select" type="hidden" value="PCWP"></div>
-      <div class="status-item status-item-last"><span id="status-timestamp-label" class="status-kicker">Last Update</span><strong id="status-timestamp">Waiting for telemetry</strong></div>
+      <div class="status-item"><span class="status-kicker">Total Uptime</span><strong id="total-uptime">—</strong></div>
+      <div class="status-item status-item-last"><span id="status-timestamp-label" class="status-kicker">Last Data Update</span><strong id="status-timestamp">Waiting for telemetry</strong></div>
       <p id="connection-message" class="connection-message" role="alert" aria-live="assertive"></p>
     </section>
 
@@ -83,6 +84,7 @@
         <div class="historical-canvas"><canvas id="historical-chart" aria-label="Historical telemetry trend"></canvas></div>
       </article>
     </section>
+    <div class="project-return"><a href="https://amirulihakim.github.io/projects/pt-timah-industrial-monitoring.html">&larr; Back to PT Timah Project</a></div>
   </main>
   <footer><p>© 2026 Amirul Hakim · Centralized Data Acquisition and Monitoring System Simulation</p></footer>
 </body>
